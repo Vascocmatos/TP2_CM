@@ -4,26 +4,39 @@ CARD_OFFSET = 20
 DROP_PROXIMITY = 20
 
 import flet as ft
+import os
 
 import slot
 
 class Card(ft.GestureDetector):
-    def __init__(self, solitaire, color):
-       super().__init__()
-       self.slot = None
-       self.draggable_pile = [self]
-       self.start_top = 0
-       self.start_left = 0
-       self.mouse_cursor = ft.MouseCursor.MOVE
-       self.drag_interval = 5
-       self.on_pan_start = self.start_drag
-       self.on_pan_update = self.drag
-       self.on_pan_end = self.drop
-       self.left = 0
-       self.top = 0
-       self.solitaire = solitaire
-       self.color = color
-       self.content = ft.Container(bgcolor=self.color, width=CARD_WIDTH, height=CARD_HEIGHT)
+    def __init__(self, solitaire, suite, rank):
+        super().__init__()
+        self.mouse_cursor=ft.MouseCursor.MOVE
+        self.drag_interval=5
+        self.on_pan_start=self.start_drag
+        self.on_pan_update=self.drag
+        self.on_pan_end=self.drop
+        self.suite=suite
+        self.rank=rank
+        self.face_up=False
+        self.top=None
+        self.left=None
+        self.solitaire = solitaire
+        self.slot = None
+
+        # Resolve image path relative to card.py location
+        image_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "assets",
+            "images",
+            "card_back.png",
+        )
+
+        self.content=ft.Container(
+            width=CARD_WIDTH,
+            height=CARD_HEIGHT,
+            border_radius = ft.BorderRadius.all(6),
+            content=ft.Image(src=image_path))
 
     def move_on_top(self):
         """Brings draggable card pile to the top of the stack"""
@@ -99,3 +112,4 @@ class Card(ft.GestureDetector):
             self.draggable_pile = [self]
         return self.draggable_pile
 
+    
