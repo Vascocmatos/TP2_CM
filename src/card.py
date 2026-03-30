@@ -59,6 +59,12 @@ class Card(ft.GestureDetector):
         # refresh tile set in case this is called during deal / drop
         self.get_draggable_pile()
 
+        if slot in self.solitaire.tableau:
+            self.top = slot.top + len(slot.pile) * CARD_OFFSET
+        else:
+            self.top = slot.top
+        self.left = slot.left
+
         for card in self.draggable_pile:
             card.top = slot.top + len(slot.pile) * CARD_OFFSET
             card.left = slot.left
