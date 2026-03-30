@@ -1,5 +1,6 @@
 SOLITAIRE_WIDTH = 1000
 SOLITAIRE_HEIGHT = 500
+CARD_HEIGHT = 100
 
 import random
 
@@ -85,6 +86,17 @@ class Solitaire(ft.Stack):
         self.controls.extend(self.foundations)
         self.controls.extend(self.tableau)
         self.update()
+        self.reset_btn = ft.ElevatedButton(
+            "Reset",
+            left=self.waste.left,
+            top=self.waste.top + CARD_HEIGHT + 10,
+            on_click=self.on_reset_click,
+        )
+        self.controls.append(self.reset_btn)
+
+    def on_reset_click(self, e):
+        if len(self.stock.pile) == 0:
+            self.restart_stock()
 
     def deal_cards(self):
         random.shuffle(self.cards)

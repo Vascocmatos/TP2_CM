@@ -153,6 +153,11 @@ class Card(ft.GestureDetector):
             if not self.face_up and len(self.draggable_pile) == 1:
                 self.turn_face_up()
         elif self.slot == self.solitaire.stock:
+            # se o stock estiver vazio, recicla o waste
+            if len(self.solitaire.stock.pile) == 0:
+                self.solitaire.restart_stock()
+                return
+
             self.move_on_top()
             self.place(self.solitaire.waste)
             self.turn_face_up()
