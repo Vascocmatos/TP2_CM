@@ -1,5 +1,5 @@
 DEFAULT_SETTINGS = {
-    "card_back": "/images/card_back.png",
+    "card_back": "/images/card_back/card_back.png",
     "theme": "light",
 }
 

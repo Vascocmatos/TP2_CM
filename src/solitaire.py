@@ -116,10 +116,11 @@ class Solitaire(ft.Stack):
         random.shuffle(self.cards)
         self.controls.extend(self.cards)
 
+        # usar cópia para não destruir self.cards
+        remaining_cards = self.cards.copy()
+
         # deal to tableau
         first_slot = 0
-        remaining_cards = self.cards
-
         while first_slot < len(self.tableau):
             for slot in self.tableau[first_slot:]:
                 top_card = remaining_cards[0]
@@ -140,6 +141,7 @@ class Solitaire(ft.Stack):
         self.update()
 
     def set_card_back(self, card_back):
+        print("set_card_back called with:", card_back)
         self.card_back = card_back
         for card in self.cards:
             if not card.face_up:

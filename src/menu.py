@@ -1,12 +1,16 @@
 import flet as ft
 from state import load_settings, save_settings, has_savegame
 
+# label -> path
 CARD_BACK_OPTIONS = [
-    ("/images/card_back.png", "Clássico"),
-    ("/images/card_back_2.png", "Azul"),
-    ("/images/card_back_3.png", "Vermelho"),
-    ("/images/card_back_4.png", "Verde"),
+    ("Clássico", "/images/card_back/card_back.png"),
+    ("blasphamous", "/images/card_back/blasphemous_card.png"),
+    ("Bach", "/images/card_back/card_bach.png"),
+    ("Amarelo", "/images/card_back/carta_amarela.png"),
 ]
+
+LABEL_TO_PATH = {label: path for label, path in CARD_BACK_OPTIONS}
+PATH_TO_LABEL = {path: label for label, path in CARD_BACK_OPTIONS}
 
 
 class MenuOverlay(ft.Container):
@@ -42,10 +46,8 @@ class MenuOverlay(ft.Container):
 
         self.content = self.panel
         self.mode = "main"
-        # NÃO chamar build aqui
 
     def did_mount(self):
-        # só agora está na página, então pode construir
         self._build_main_menu()
 
     def _set_panel(self, title, controls):
@@ -95,20 +97,20 @@ class MenuOverlay(ft.Container):
         self.mode = "options"
         settings = load_settings(self.app_page)
 
+        current_path = settings.get("card_back", "/images/card_back/card_back.png")
+        current_label = PATH_TO_LABEL.get(current_path, "Clássico")
+
         self.card_back_dd = ft.Dropdown(
             label="Traseira das cartas",
-            value=settings.get("card_back", "/images/card_back.png"),
-            options=[
-                ft.dropdown.Option(key=path, text=label)
-                for path, label in CARD_BACK_OPTIONS
-            ],
-            on_change=self._on_change_card_back,
+            value=current_label,
+            options=[ft.dropdown.Option(text=label) for label, _ in CARD_BACK_OPTIONS],
         )
 
         self._set_panel(
             "Opções",
             [
                 self.card_back_dd,
+                ft.ElevatedButton("Aplicar", on_click=self._apply_card_back),
                 ft.OutlinedButton("Voltar", on_click=lambda e: self._build_main_menu()),
             ],
         )
@@ -124,11 +126,25 @@ class MenuOverlay(ft.Container):
             ],
         )
 
-    def _on_change_card_back(self, e):
+    def _apply_card_back(self, e):
+        # tenta por label
+        selected_label = self.card_back_dd.value
+        selected_path = LABEL_TO_PATH.get(selected_label)
+
+        # fallback por índice (caso value venha vazio nesta versão)
+        if not selected_path and self.card_back_dd.selected_index is not None:
+            try:
+                selected_path = CARD_BACK_OPTIONS[self.card_back_dd.selected_index][1]
+            except Exception:
+                selected_path = None
+
+        if not selected_path:
+            selected_path = "/images/card_back/card_back.png"
+
         settings = load_settings(self.app_page)
-        settings["card_back"] = self.card_back_dd.value
+        settings["card_back"] = selected_path
         save_settings(self.app_page, settings)
-        self.on_set_card_back(self.card_back_dd.value)
+        self.on_set_card_back(selected_path)
 
     def show_main(self):
         self.visible = True
