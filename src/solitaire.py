@@ -5,7 +5,7 @@ CARD_HEIGHT = 100
 import random
 
 import flet as ft
-from card import Card
+from card import Card, CARD_OFFSET
 from slot import Slot
 
 
@@ -27,6 +27,8 @@ class Solitaire(ft.Stack):
         self.controls = []
         self.width = SOLITAIRE_WIDTH
         self.height = SOLITAIRE_HEIGHT
+        self.history = []
+        self.suppress_history = False
 
     def did_mount(self):
         self.create_card_deck()
@@ -64,7 +66,6 @@ class Solitaire(ft.Stack):
 
     def create_slots(self):
         self.stock = Slot(solitaire=self, top=0, left=0, border=ft.border.all(1))
-
         self.waste = Slot(solitaire=self, top=0, left=100, border=None)
 
         self.foundations = []
@@ -85,7 +86,7 @@ class Solitaire(ft.Stack):
         self.controls.append(self.waste)
         self.controls.extend(self.foundations)
         self.controls.extend(self.tableau)
-        self.update()
+
         self.reset_btn = ft.ElevatedButton(
             "Reset",
             left=self.waste.left,
@@ -94,11 +95,23 @@ class Solitaire(ft.Stack):
         )
         self.controls.append(self.reset_btn)
 
+        self.undo_btn = ft.ElevatedButton(
+            "Undo",
+            left=self.reset_btn.left + 80,
+            top=self.reset_btn.top,
+            on_click=lambda e: self.undo(),
+        )
+        self.controls.append(self.undo_btn)
+
+        self.update()
+
     def on_reset_click(self, e):
         if len(self.stock.pile) == 0:
             self.restart_stock()
 
     def deal_cards(self):
+        self.suppress_history = True
+
         random.shuffle(self.cards)
         self.controls.extend(self.cards)
 
@@ -116,13 +129,13 @@ class Solitaire(ft.Stack):
         # place remaining cards to stock pile
         for card in remaining_cards:
             card.place(self.stock)
-            print(f"Card in stock: {card.rank.name} {card.suite.name}")
 
         self.update()
 
         for slot in self.tableau:
             slot.get_top_card().turn_face_up()
 
+        self.suppress_history = False
         self.update()
 
     def check_foundations_rules(self, card, slot):
@@ -134,6 +147,32 @@ class Solitaire(ft.Stack):
             )
         else:
             return card.rank.name == "Ace"
+
+    def undo(self):
+        if not self.history:
+            return
+        move = self.history.pop()
+
+        # remove cartas do destino e volta ao slot original
+        for card in move["cards"]:
+            if card in move["to"].pile:
+                move["to"].pile.remove(card)
+            card.slot = move["from"]
+            move["from"].pile.append(card)
+
+        # reposicionar visualmente
+        for card in move["cards"]:
+            if move["from"] in self.tableau:
+                card.top = move["from"].top + move["from"].pile.index(card) * CARD_OFFSET
+            else:
+                card.top = move["from"].top
+            card.left = move["from"].left
+
+        # se houve cartas viradas automaticamente, desvirar
+        for card in move.get("flipped_cards", []):
+            card.turn_face_down()
+
+        self.update()
 
     def check_tableau_rules(self, card, slot):
         top_card = slot.get_top_card()
@@ -147,11 +186,13 @@ class Solitaire(ft.Stack):
             return card.rank.name == "King"
 
     def restart_stock(self):
+        self.suppress_history = True
         while len(self.waste.pile) > 0:
             card = self.waste.get_top_card()
             card.turn_face_down()
             card.move_on_top()
             card.place(self.stock)
+        self.suppress_history = False
 
     def check_win(self):
         cards_num = 0
