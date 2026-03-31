@@ -221,5 +221,5 @@ class Solitaire(ft.Stack):
                 card.left = random.randint(0, SOLITAIRE_WIDTH)
                 self.update()
         self.controls.append(
-            ft.AlertDialog(title=ft.Text("Congratulations! You won!"), open=True)
+            ft.AlertDialog(title=ft.Text("Parabens! Ganhaste!"), open=True)
         )
