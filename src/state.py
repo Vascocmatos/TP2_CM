@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+from duckdb_store import db_get, db_set
 
 DEFAULT_SETTINGS = {
     "card_back": "/images/card_back/card_back.png",
@@ -31,21 +32,36 @@ def _get_storage(page):
 
 
 def storage_get(page, key, default=None):
+    # 1) tenta DuckDB primeiro
+    db_value = db_get(key)
+    if db_value is not None:
+        return db_value
+
+    # 2) se não tiver, tenta storage atual
     kind, storage = _get_storage(page)
 
     if kind in ("client", "storage"):
         try:
-            return storage.get(key, default)
+            value = storage.get(key, default)
         except TypeError:
-            return storage.get(key)
+            value = storage.get(key)
+    elif kind == "file":
+        value = _file_load().get(key, default)
+    else:
+        value = default
 
-    if kind == "file":
-        return _file_load().get(key, default)
+    # 3) sincroniza para DuckDB se encontrou algo
+    if value is not None:
+        db_set(key, value)
 
-    return default
+    return value
 
 
 def storage_set(page, key, value):
+    # 1) grava DuckDB sempre
+    db_set(key, value)
+
+    # 2) grava no storage atual
     kind, storage = _get_storage(page)
 
     if kind in ("client", "storage"):
