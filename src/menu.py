@@ -37,19 +37,50 @@ class MenuOverlay(ft.Container):
 
         self.visible = True
         self.expand = True
-        self.bgcolor = "rgba(0,0,0,0.6)"
+        self.bgcolor = "rgba(10,10,10,0.65)"
         self.alignment = ft.Alignment(0, 0)
 
+
+
         self.panel = ft.Container(
-            width=360,
-            padding=20,
-            bgcolor=ft.Colors.WHITE,
-            border_radius=10,
-            shadow=ft.BoxShadow(blur_radius=20, color=ft.Colors.BLACK_38),
+            width=420,
+            padding=22,
+            bgcolor="#1E1E1E",
+            border_radius=14,
+            border=ft.border.all(1, "#2C2C2C"),
+            shadow=ft.BoxShadow(blur_radius=30, color=ft.Colors.BLACK_54),
         )
 
         self.content = self.panel
         self.mode = "main"
+
+
+    def _title(self, text):
+        return ft.Text(text, size=22, weight=ft.FontWeight.BOLD, color="#F5F5F5")
+
+    def _primary_btn(self, label, on_click):
+        return ft.ElevatedButton(
+            label,
+            on_click=on_click,
+            style=ft.ButtonStyle(
+                bgcolor="#3B82F6",
+                color="white",
+                shape=ft.RoundedRectangleBorder(radius=10),
+                padding=ft.padding.symmetric(horizontal=18, vertical=12),
+            ),
+        )
+
+    def _secondary_btn(self, label, on_click):
+        return ft.OutlinedButton(
+            label,
+            on_click=on_click,
+            style=ft.ButtonStyle(
+                color="#E5E7EB",
+                shape=ft.RoundedRectangleBorder(radius=10),
+                side=ft.BorderSide(1, "#3B3B3B"),
+                padding=ft.padding.symmetric(horizontal=18, vertical=12),
+            ),
+        )
 
     def did_mount(self):
         self._build_main_menu()
@@ -57,12 +88,12 @@ class MenuOverlay(ft.Container):
     def _set_panel(self, title, controls):
         self.panel.content = ft.Column(
             [
-                ft.Text(title, size=20, weight=ft.FontWeight.BOLD),
-                ft.Divider(),
+                self._title(title),
+                ft.Divider(color="#3A3A3A"),
                 *controls,
             ],
             tight=True,
-            spacing=10,
+            spacing=12,
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         try:
@@ -75,9 +106,31 @@ class MenuOverlay(ft.Container):
         self._set_panel(
             "Solitaire",
             [
-                ft.ElevatedButton("Start", on_click=lambda e: self._build_start_menu()),
-                ft.OutlinedButton("Opções", on_click=lambda e: self._build_options_menu()),
-                ft.OutlinedButton("Quit", on_click=lambda e: self.on_quit()),
+                self._primary_btn("Start", lambda e: self._build_start_menu()),
+                self._secondary_btn("Opções", lambda e: self._build_options_menu()),
+                self._secondary_btn("Tutorial", lambda e: self._build_tutorial_menu()),
+                self._secondary_btn("Quit", lambda e: self.on_quit()),
+            ],
+        )
+
+    def _build_tutorial_menu(self):
+        self.mode = "tutorial"
+        texto = (
+            "Regras do Solitário:\n"
+            "• Move cartas alternando cores em ordem decrescente.\n"
+            "• Só reis podem ir para colunas vazias.\n"
+            "• Objetivo: completar as fundações por naipe do Ás ao Rei.\n\n"
+            "Particularidades desta app:\n"
+            "• O tempo e a pontuação reiniciam quando carregas um save.\n"
+            "• Cada Undo adiciona +5 pontos (pior pontuação).\n"
+            "• Pontuação = tempo total + penalizações.\n"
+        )
+
+        self._set_panel(
+            "Tutorial",
+            [
+                ft.Text(texto, size=14),
+                ft.OutlinedButton("Voltar", on_click=lambda e: self._build_main_menu()),
             ],
         )
 
