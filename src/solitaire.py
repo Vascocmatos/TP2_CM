@@ -116,10 +116,8 @@ class Solitaire(ft.Stack):
         random.shuffle(self.cards)
         self.controls.extend(self.cards)
 
-        # usar cópia para não destruir self.cards
         remaining_cards = self.cards.copy()
 
-        # deal to tableau
         first_slot = 0
         while first_slot < len(self.tableau):
             for slot in self.tableau[first_slot:]:
@@ -128,7 +126,6 @@ class Solitaire(ft.Stack):
                 remaining_cards.remove(top_card)
             first_slot += 1
 
-        # place remaining cards to stock pile
         for card in remaining_cards:
             card.place(self.stock)
 
@@ -141,7 +138,6 @@ class Solitaire(ft.Stack):
         self.update()
 
     def set_card_back(self, card_back):
-        print("set_card_back called with:", card_back)
         self.card_back = card_back
         for card in self.cards:
             if not card.face_up:
@@ -163,14 +159,12 @@ class Solitaire(ft.Stack):
             return
         move = self.history.pop()
 
-        # remove cartas do destino e volta ao slot original
         for card in move["cards"]:
             if card in move["to"].pile:
                 move["to"].pile.remove(card)
             card.slot = move["from"]
             move["from"].pile.append(card)
 
-        # reposicionar visualmente
         for card in move["cards"]:
             if move["from"] in self.tableau:
                 card.top = move["from"].top + move["from"].pile.index(card) * CARD_OFFSET
@@ -178,7 +172,6 @@ class Solitaire(ft.Stack):
                 card.top = move["from"].top
             card.left = move["from"].left
 
-        # se houve cartas viradas automaticamente, desvirar
         for card in move.get("flipped_cards", []):
             card.turn_face_down()
 
@@ -223,3 +216,62 @@ class Solitaire(ft.Stack):
         self.controls.append(
             ft.AlertDialog(title=ft.Text("Parabens! Ganhaste!"), open=True)
         )
+
+    # ====== SAVE / LOAD ======
+    def get_state(self):
+        def card_to_dict(card):
+            return {
+                "suite": card.suite.name,
+                "rank": card.rank.name,
+                "face_up": card.face_up,
+            }
+
+        return {
+            "tableau": [[card_to_dict(c) for c in slot.pile] for slot in self.tableau],
+            "foundations": [
+                [card_to_dict(c) for c in slot.pile] for slot in self.foundations
+            ],
+            "stock": [card_to_dict(c) for c in self.stock.pile],
+            "waste": [card_to_dict(c) for c in self.waste.pile],
+        }
+
+    def load_state(self, state):
+        self.controls.clear()
+        self.history = []
+        self.create_card_deck()
+        self.create_slots()
+        self.controls.extend(self.cards)  # mantém cartas visíveis (como no deal)
+
+        # index rápido para cartas
+        card_map = {}
+        for c in self.cards:
+            card_map[(c.suite.name, c.rank.name)] = c
+
+        def place_list(cards, slot):
+            for card_data in cards:
+                card = card_map[(card_data["suite"], card_data["rank"])]
+                card.place(slot)
+                if card_data["face_up"]:
+                    card.turn_face_up()
+                else:
+                    card.turn_face_down()
+
+        for slot, pile_data in zip(self.tableau, state["tableau"]):
+            place_list(pile_data, slot)
+
+        for slot, pile_data in zip(self.foundations, state["foundations"]):
+            place_list(pile_data, slot)
+
+        place_list(state["stock"], self.stock)
+        place_list(state["waste"], self.waste)
+
+        # ✅ REORDENA CAMADAS: remove e reanexa cartas pela ordem das pilhas
+        for card in list(self.cards):
+            if card in self.controls:
+                self.controls.remove(card)
+
+        for slot in [self.stock, self.waste, *self.foundations, *self.tableau]:
+            for card in slot.pile:
+                self.controls.append(card)
+
+        self.update()

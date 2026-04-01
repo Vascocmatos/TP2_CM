@@ -1,7 +1,7 @@
 import flet as ft
-from state import load_settings, save_settings, has_savegame
+from state import load_settings, save_settings
+from savegame import list_slots, delete_game
 
-# label -> path
 CARD_BACK_OPTIONS = [
     ("Clássico", "/images/card_back/card_back.png"),
     ("blasphamous", "/images/card_back/blasphemous_card.png"),
@@ -22,6 +22,8 @@ class MenuOverlay(ft.Container):
         on_resume,
         on_quit,
         on_set_card_back,
+        on_save_slot,
+        on_load_slot,
     ):
         super().__init__()
         self.app_page = page
@@ -30,6 +32,8 @@ class MenuOverlay(ft.Container):
         self.on_resume = on_resume
         self.on_quit = on_quit
         self.on_set_card_back = on_set_card_back
+        self.on_save_slot = on_save_slot
+        self.on_load_slot = on_load_slot
 
         self.visible = True
         self.expand = True
@@ -79,19 +83,70 @@ class MenuOverlay(ft.Container):
 
     def _build_start_menu(self):
         self.mode = "start"
-        continue_enabled = has_savegame(self.app_page)
         self._set_panel(
             "Start",
             [
                 ft.ElevatedButton("Novo Jogo", on_click=lambda e: self.on_new_game()),
-                ft.ElevatedButton(
-                    "Continuar",
-                    disabled=not continue_enabled,
-                    on_click=lambda e: self.on_continue(),
-                ),
+                ft.ElevatedButton("Continuar", on_click=lambda e: self._build_load_menu()),
                 ft.OutlinedButton("Voltar", on_click=lambda e: self._build_main_menu()),
             ],
         )
+
+    def _build_pause_menu(self):
+        self.mode = "pause"
+        self._set_panel(
+            "Pausa",
+            [
+                ft.ElevatedButton("Continuar", on_click=lambda e: self.on_resume()),
+                ft.ElevatedButton("Novo Jogo", on_click=lambda e: self.on_new_game()),
+                ft.ElevatedButton("Salvar Jogo", on_click=lambda e: self._build_save_menu()),
+                ft.ElevatedButton("Carregar Jogo", on_click=lambda e: self._build_load_menu()),
+                ft.OutlinedButton("Opções", on_click=lambda e: self._build_options_menu()),
+                ft.OutlinedButton("Menu Inicial", on_click=lambda e: self._build_main_menu()),
+            ],
+        )
+
+    def _build_load_menu(self):
+        self.mode = "load"
+        slots = list_slots(self.app_page)
+
+        controls = []
+        for s in slots:
+            title = f"Slot {s['slot']}"
+            label = title if s["data"] else f"{title} (vazio)"
+
+            btn_load = ft.ElevatedButton(
+                label,
+                disabled=s["data"] is None,
+                on_click=lambda e, slot=s["slot"]: self.on_load_slot(slot),
+            )
+            controls.append(btn_load)
+
+            btn_delete = ft.OutlinedButton(
+                f"Apagar {title}",
+                disabled=s["data"] is None,
+                on_click=lambda e, slot=s["slot"]: self._delete_slot(slot),
+            )
+            controls.append(btn_delete)
+
+        controls.append(ft.OutlinedButton("Voltar", on_click=lambda e: self._build_start_menu()))
+        self._set_panel("Carregar Jogo", controls)
+
+    def _build_save_menu(self):
+        self.mode = "save"
+        slots = list_slots(self.app_page)
+        controls = []
+        for s in slots:
+            title = f"Slot {s['slot']}"
+            label = title if s["data"] else f"{title} (vazio)"
+            btn = ft.ElevatedButton(
+                f"Salvar em {label}",
+                on_click=lambda e, slot=s["slot"]: self.on_save_slot(slot),
+            )
+            controls.append(btn)
+
+        controls.append(ft.OutlinedButton("Voltar", on_click=lambda e: self._build_pause_menu()))
+        self._set_panel("Salvar Jogo", controls)
 
     def _build_options_menu(self):
         self.mode = "options"
@@ -115,23 +170,10 @@ class MenuOverlay(ft.Container):
             ],
         )
 
-    def _build_pause_menu(self):
-        self.mode = "pause"
-        self._set_panel(
-            "Pausa",
-            [
-                ft.ElevatedButton("Continuar", on_click=lambda e: self.on_resume()),
-                ft.OutlinedButton("Opções", on_click=lambda e: self._build_options_menu()),
-                ft.OutlinedButton("Menu Inicial", on_click=lambda e: self._build_main_menu()),
-            ],
-        )
-
     def _apply_card_back(self, e):
-        # tenta por label
         selected_label = self.card_back_dd.value
         selected_path = LABEL_TO_PATH.get(selected_label)
 
-        # fallback por índice (caso value venha vazio nesta versão)
         if not selected_path and self.card_back_dd.selected_index is not None:
             try:
                 selected_path = CARD_BACK_OPTIONS[self.card_back_dd.selected_index][1]
@@ -145,6 +187,10 @@ class MenuOverlay(ft.Container):
         settings["card_back"] = selected_path
         save_settings(self.app_page, settings)
         self.on_set_card_back(selected_path)
+
+    def _delete_slot(self, slot):
+        delete_game(self.app_page, slot)
+        self._build_load_menu()
 
     def show_main(self):
         self.visible = True

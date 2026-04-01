@@ -2,12 +2,13 @@ import flet as ft
 from solitaire import Solitaire
 from menu import MenuOverlay
 from state import load_settings
+from savegame import save_game, load_game
 
 
 class GameApp(ft.Stack):
     def __init__(self, page: ft.Page):
         super().__init__()
-        self.app_page = page  # <--- corrigido
+        self.app_page = page
         self.expand = True
         self.settings = load_settings(self.app_page)
 
@@ -20,6 +21,8 @@ class GameApp(ft.Stack):
             on_resume=self.resume_game,
             on_quit=self.quit_game,
             on_set_card_back=self.set_card_back,
+            on_save_slot=self.save_slot,
+            on_load_slot=self.load_slot,
         )
 
         self.controls = [self.solitaire, self.menu]
@@ -51,6 +54,10 @@ class GameApp(ft.Stack):
 
     def quit_game(self):
         try:
+            self.app_page.window_close()
+        except Exception:
+            pass
+        try:
             self.app_page.window_destroy()
         except Exception:
             pass
@@ -58,6 +65,17 @@ class GameApp(ft.Stack):
     def on_key_event(self, e: ft.KeyboardEvent):
         if e.key == "Escape":
             self.toggle_pause()
+
+    def save_slot(self, slot):
+        data = self.solitaire.get_state()
+        save_game(self.app_page, slot, data)
+        self.menu.show_pause()
+
+    def load_slot(self, slot):
+        data = load_game(self.app_page, slot)
+        if data:
+            self.solitaire.load_state(data)
+        self.menu.hide()
 
 
 def main(page: ft.Page):
