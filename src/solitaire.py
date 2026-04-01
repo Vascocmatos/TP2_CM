@@ -1,8 +1,13 @@
+import asyncio
+
+
+
 SOLITAIRE_WIDTH = 1000
 SOLITAIRE_HEIGHT = 500
 CARD_HEIGHT = 100
 
 import random
+import time
 
 import flet as ft
 from card import Card, CARD_OFFSET
@@ -31,10 +36,54 @@ class Solitaire(ft.Stack):
         self.suppress_history = False
         self.card_back = card_back
 
+        # ====== SCORE / TIMER ======
+        self.start_time = time.time()
+        self.undo_penalty = 0
+
+        self.score_text = ft.Text(
+            "Tempo: 00:00  |  Pontos: 0",
+            size=16,
+            weight=ft.FontWeight.BOLD,
+        )
+        self.score_box = ft.Container(
+            content=self.score_text,
+            left=SOLITAIRE_WIDTH / 2 - 120,
+            top=SOLITAIRE_HEIGHT - 30,
+        )
+
+        self._timer_task_running = False
+
+
     def did_mount(self):
         self.create_card_deck()
         self.create_slots()
         self.deal_cards()
+
+        # adiciona score ao stack
+        self.controls.append(self.score_box)
+
+        # start timer loop (sem ft.Timer)
+        self._timer_task_running = True
+        self.page.run_task(self._timer_loop)
+
+    def _format_time(self, seconds):
+        m = seconds // 60
+        s = seconds % 60
+        return f"{m:02d}:{s:02d}"
+
+    def _update_score_text(self):
+        elapsed = int(time.time() - self.start_time)
+        score = elapsed + self.undo_penalty
+        self.score_text.value = f"Tempo: {self._format_time(elapsed)}  |  Pontos: {score}"
+        self.update()
+
+    def _on_timer_tick(self, e):
+        self._update_score_text()
+
+    def _reset_score_timer(self):
+        self.start_time = time.time()
+        self.undo_penalty = 0
+        self._update_score_text()
 
     def create_card_deck(self):
         suites = [
@@ -159,6 +208,10 @@ class Solitaire(ft.Stack):
             return
         move = self.history.pop()
 
+        # penalização
+        self.undo_penalty += 5
+        self._update_score_text()
+
         for card in move["cards"]:
             if card in move["to"].pile:
                 move["to"].pile.remove(card)
@@ -240,9 +293,11 @@ class Solitaire(ft.Stack):
         self.history = []
         self.create_card_deck()
         self.create_slots()
-        self.controls.extend(self.cards)  # mantém cartas visíveis (como no deal)
+        self.controls.extend(self.cards)
 
-        # index rápido para cartas
+        # reset timer/score
+        self._reset_score_timer()
+
         card_map = {}
         for c in self.cards:
             card_map[(c.suite.name, c.rank.name)] = c
@@ -265,7 +320,6 @@ class Solitaire(ft.Stack):
         place_list(state["stock"], self.stock)
         place_list(state["waste"], self.waste)
 
-        # ✅ REORDENA CAMADAS: remove e reanexa cartas pela ordem das pilhas
         for card in list(self.cards):
             if card in self.controls:
                 self.controls.remove(card)
@@ -275,3 +329,13 @@ class Solitaire(ft.Stack):
                 self.controls.append(card)
 
         self.update()
+
+
+
+    async def _timer_loop(self):
+        while self._timer_task_running:
+            self._update_score_text()
+            await asyncio.sleep(1)
+
+    def will_unmount(self):
+        self._timer_task_running = False
