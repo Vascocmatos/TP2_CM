@@ -8,9 +8,9 @@ from savegame import save_game, load_game
 
 class GameApp(ft.Stack):
     def __init__(self, page: ft.Page):
-        super().__init__()
+        super().__init__(width=1000, height=650)
         self.app_page = page
-        self.expand = True
+        #self.expand = True
         self.settings = load_settings(self.app_page)
 
                 # 1. CRIAR OS CONTROLOS DE ÁUDIO
@@ -146,9 +146,41 @@ class GameApp(ft.Stack):
 
 def main(page: ft.Page):
     page.on_error = lambda e: print("Page error:", e.data)
+    page.padding = 0  # Remover margens para usar o ecrã todo
+
     app = GameApp(page)
-    page.add(app)
+    
+    # O SEGREDO: Colocar o app dentro de uma Stack raiz que preenche o ecrã.
+    # Assim, o app pode ter o seu tamanho original de 1000x650 sem o Flutter cortar!
+    root_stack = ft.Stack([app], expand=True)
+    page.add(root_stack)
+    
     page.on_keyboard_event = app.on_key_event
 
+    def on_resize(e):
+            if page.width == 0 or page.height == 0:
+                return
+                
+            # 1. Ajustar para a largura REAL das cartas (720px) em vez dos 1000px do fundo
+            GAME_W = 720
+            GAME_H = 600
+            
+            scale_w = page.width / GAME_W
+            scale_h = page.height / GAME_H
+            final_scale = min(scale_w, scale_h, 1.0)
+            
+            app.scale = ft.Scale(scale=final_scale, alignment=ft.Alignment(-1.0, -1.0))
+            
+            # 2. Calcular apenas a sobra horizontal para o centrar na perfeição
+            sobra_w = page.width - (GAME_W * final_scale)
+            
+            app.left = sobra_w / 2
+            # 3. Mini borda fixa no topo em vez de centrar na vertical!
+            app.top = 25 
+            
+            app.update()
+
+    page.on_resize = on_resize
+    on_resize(None)
 
 ft.run(main, assets_dir="assets")
