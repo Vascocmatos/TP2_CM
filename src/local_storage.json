@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "card_back": "/images/card_back/blasphemous_card.png",
+    "theme": "light",
+    "music_volume": 0.1,
+    "sfx_volume": 1.0
+  },
+  "savegame_1": null,
+  "savegame_1_meta": null
+}
