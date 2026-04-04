@@ -22,7 +22,7 @@ class Rank:
 
 
 class Solitaire(ft.Stack):
-    def __init__(self, card_back="/images/card_back.png"):
+    def __init__(self, card_back="/images/card_back.png", play_card_sound=None, play_btn_sound=None):
         super().__init__()
         self.controls = []
         self.width = SOLITAIRE_WIDTH
@@ -30,6 +30,9 @@ class Solitaire(ft.Stack):
         self.history = []
         self.suppress_history = False
         self.card_back = card_back
+        
+        self.play_card_sound = play_card_sound
+        self.play_btn_sound = play_btn_sound
 
     def did_mount(self):
         self.create_card_deck()
@@ -44,36 +47,25 @@ class Solitaire(ft.Stack):
             Suite("spades", "BLACK"),
         ]
         ranks = [
-            Rank("Ace", 1),
-            Rank("2", 2),
-            Rank("3", 3),
-            Rank("4", 4),
-            Rank("5", 5),
-            Rank("6", 6),
-            Rank("7", 7),
-            Rank("8", 8),
-            Rank("9", 9),
-            Rank("10", 10),
-            Rank("Jack", 11),
-            Rank("Queen", 12),
-            Rank("King", 13),
+            Rank("Ace", 1), Rank("2", 2), Rank("3", 3), Rank("4", 4),
+            Rank("5", 5), Rank("6", 6), Rank("7", 7), Rank("8", 8),
+            Rank("9", 9), Rank("10", 10), Rank("Jack", 11),
+            Rank("Queen", 12), Rank("King", 13),
         ]
-
         self.cards = []
-
         for suite in suites:
             for rank in ranks:
                 self.cards.append(Card(solitaire=self, suite=suite, rank=rank))
 
     def create_slots(self):
-        self.stock = Slot(solitaire=self, top=0, left=0, border=ft.border.all(1))
+        self.stock = Slot(solitaire=self, top=0, left=0, border=ft.Border.all(1))
         self.waste = Slot(solitaire=self, top=0, left=100, border=None)
 
         self.foundations = []
         x = 300
         for i in range(4):
             self.foundations.append(
-                Slot(solitaire=self, top=0, left=x, border=ft.border.all(1, "outline"))
+                Slot(solitaire=self, top=0, left=x, border=ft.Border.all(1, "outline"))
             )
             x += 100
 
@@ -83,8 +75,7 @@ class Solitaire(ft.Stack):
             self.tableau.append(Slot(solitaire=self, top=150, left=x, border=None))
             x += 100
 
-        self.controls.append(self.stock)
-        self.controls.append(self.waste)
+        self.controls.extend([self.stock, self.waste])
         self.controls.extend(self.foundations)
         self.controls.extend(self.tableau)
 
@@ -107,15 +98,15 @@ class Solitaire(ft.Stack):
         self.update()
 
     def on_reset_click(self, e):
+        if self.play_btn_sound:
+            self.play_btn_sound()
         if len(self.stock.pile) == 0:
             self.restart_stock()
 
     def deal_cards(self):
         self.suppress_history = True
-
         random.shuffle(self.cards)
         self.controls.extend(self.cards)
-
         remaining_cards = self.cards.copy()
 
         first_slot = 0
@@ -130,7 +121,6 @@ class Solitaire(ft.Stack):
             card.place(self.stock)
 
         self.update()
-
         for slot in self.tableau:
             slot.get_top_card().turn_face_up()
 
@@ -155,9 +145,15 @@ class Solitaire(ft.Stack):
             return card.rank.name == "Ace"
 
     def undo(self):
+        if self.play_btn_sound:
+            self.play_btn_sound()
+            
         if not self.history:
             return
         move = self.history.pop()
+        
+        if self.play_card_sound:
+            self.play_card_sound()
 
         for card in move["cards"]:
             if card in move["to"].pile:
@@ -190,6 +186,8 @@ class Solitaire(ft.Stack):
 
     def restart_stock(self):
         self.suppress_history = True
+        if self.play_card_sound:
+            self.play_card_sound()
         while len(self.waste.pile) > 0:
             card = self.waste.get_top_card()
             card.turn_face_down()
@@ -217,7 +215,6 @@ class Solitaire(ft.Stack):
             ft.AlertDialog(title=ft.Text("Parabens! Ganhaste!"), open=True)
         )
 
-    # ====== SAVE / LOAD ======
     def get_state(self):
         def card_to_dict(card):
             return {
@@ -225,7 +222,6 @@ class Solitaire(ft.Stack):
                 "rank": card.rank.name,
                 "face_up": card.face_up,
             }
-
         return {
             "tableau": [[card_to_dict(c) for c in slot.pile] for slot in self.tableau],
             "foundations": [
@@ -236,13 +232,13 @@ class Solitaire(ft.Stack):
         }
 
     def load_state(self, state):
+        self.suppress_history = True
         self.controls.clear()
         self.history = []
         self.create_card_deck()
         self.create_slots()
-        self.controls.extend(self.cards)  # mantém cartas visíveis (como no deal)
+        self.controls.extend(self.cards) 
 
-        # index rápido para cartas
         card_map = {}
         for c in self.cards:
             card_map[(c.suite.name, c.rank.name)] = c
@@ -258,20 +254,17 @@ class Solitaire(ft.Stack):
 
         for slot, pile_data in zip(self.tableau, state["tableau"]):
             place_list(pile_data, slot)
-
         for slot, pile_data in zip(self.foundations, state["foundations"]):
             place_list(pile_data, slot)
-
         place_list(state["stock"], self.stock)
         place_list(state["waste"], self.waste)
 
-        # ✅ REORDENA CAMADAS: remove e reanexa cartas pela ordem das pilhas
         for card in list(self.cards):
             if card in self.controls:
                 self.controls.remove(card)
-
         for slot in [self.stock, self.waste, *self.foundations, *self.tableau]:
             for card in slot.pile:
                 self.controls.append(card)
 
+        self.suppress_history = False
         self.update()

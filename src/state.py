@@ -5,6 +5,8 @@ from duckdb_store import db_get, db_set
 DEFAULT_SETTINGS = {
     "card_back": "/images/card_back/card_back.png",
     "theme": "light",
+    "music_volume": 0.5,
+    "sfx_volume": 0.8,
 }
 
 _STORE_FILE = Path(__file__).resolve().parent / "local_storage.json"

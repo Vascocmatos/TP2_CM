@@ -21,9 +21,10 @@ class MenuOverlay(ft.Container):
         on_continue,
         on_resume,
         on_quit,
-        on_set_card_back,
+        on_apply_settings,
         on_save_slot,
         on_load_slot,
+        play_btn_sound=None
     ):
         super().__init__()
         self.app_page = page
@@ -31,29 +32,38 @@ class MenuOverlay(ft.Container):
         self.on_continue = on_continue
         self.on_resume = on_resume
         self.on_quit = on_quit
-        self.on_set_card_back = on_set_card_back
+        self.on_apply_settings = on_apply_settings
         self.on_save_slot = on_save_slot
         self.on_load_slot = on_load_slot
+        self.play_btn_sound = play_btn_sound
 
         self.visible = True
         self.expand = True
         self.bgcolor = "rgba(10,10,10,0.65)"
         self.alignment = ft.Alignment(0, 0)
 
-
-
         self.panel = ft.Container(
             width=420,
             padding=22,
             bgcolor="#1E1E1E",
             border_radius=14,
-            border=ft.border.all(1, "#2C2C2C"),
+            border=ft.Border.all(1, "#2C2C2C"),
             shadow=ft.BoxShadow(blur_radius=30, color=ft.Colors.BLACK_54),
         )
 
         self.content = self.panel
         self.mode = "main"
 
+    def _play_btn_sound(self):
+        if self.play_btn_sound:
+            self.play_btn_sound()
+
+    def _wrap_click(self, on_click_action):
+        def wrapper(e):
+            self._play_btn_sound()
+            if on_click_action:
+                on_click_action(e)
+        return wrapper
 
     def _title(self, text):
         return ft.Text(text, size=22, weight=ft.FontWeight.BOLD, color="#F5F5F5")
@@ -61,24 +71,24 @@ class MenuOverlay(ft.Container):
     def _primary_btn(self, label, on_click):
         return ft.ElevatedButton(
             label,
-            on_click=on_click,
+            on_click=self._wrap_click(on_click),
             style=ft.ButtonStyle(
                 bgcolor="#3B82F6",
                 color="white",
                 shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.padding.symmetric(horizontal=18, vertical=12),
+                padding=ft.Padding.symmetric(horizontal=18, vertical=12),
             ),
         )
 
     def _secondary_btn(self, label, on_click):
         return ft.OutlinedButton(
             label,
-            on_click=on_click,
+            on_click=self._wrap_click(on_click),
             style=ft.ButtonStyle(
                 color="#E5E7EB",
                 shape=ft.RoundedRectangleBorder(radius=10),
                 side=ft.BorderSide(1, "#3B3B3B"),
-                padding=ft.padding.symmetric(horizontal=18, vertical=12),
+                padding=ft.Padding.symmetric(horizontal=18, vertical=12),
             ),
         )
 
@@ -125,12 +135,11 @@ class MenuOverlay(ft.Container):
             "• Cada Undo adiciona +5 pontos (pior pontuação).\n"
             "• Pontuação = tempo total + penalizações.\n"
         )
-
         self._set_panel(
             "Tutorial",
             [
                 ft.Text(texto, size=14),
-                ft.OutlinedButton("Voltar", on_click=lambda e: self._build_main_menu()),
+                self._secondary_btn("Voltar", lambda e: self._build_main_menu()),
             ],
         )
 
@@ -139,9 +148,9 @@ class MenuOverlay(ft.Container):
         self._set_panel(
             "Start",
             [
-                ft.ElevatedButton("Novo Jogo", on_click=lambda e: self.on_new_game()),
-                ft.ElevatedButton("Continuar", on_click=lambda e: self._build_load_menu()),
-                ft.OutlinedButton("Voltar", on_click=lambda e: self._build_main_menu()),
+                self._primary_btn("Novo Jogo", lambda e: self.on_new_game()),
+                self._primary_btn("Continuar", lambda e: self._build_load_menu()),
+                self._secondary_btn("Voltar", lambda e: self._build_main_menu()),
             ],
         )
 
@@ -150,12 +159,12 @@ class MenuOverlay(ft.Container):
         self._set_panel(
             "Pausa",
             [
-                ft.ElevatedButton("Continuar", on_click=lambda e: self.on_resume()),
-                ft.ElevatedButton("Novo Jogo", on_click=lambda e: self.on_new_game()),
-                ft.ElevatedButton("Salvar Jogo", on_click=lambda e: self._build_save_menu()),
-                ft.ElevatedButton("Carregar Jogo", on_click=lambda e: self._build_load_menu()),
-                ft.OutlinedButton("Opções", on_click=lambda e: self._build_options_menu()),
-                ft.OutlinedButton("Menu Inicial", on_click=lambda e: self._build_main_menu()),
+                self._primary_btn("Continuar", lambda e: self.on_resume()),
+                self._primary_btn("Novo Jogo", lambda e: self.on_new_game()),
+                self._primary_btn("Salvar Jogo", lambda e: self._build_save_menu()),
+                self._primary_btn("Carregar Jogo", lambda e: self._build_load_menu()),
+                self._secondary_btn("Opções", lambda e: self._build_options_menu()),
+                self._secondary_btn("Menu Inicial", lambda e: self._build_main_menu()),
             ],
         )
 
@@ -171,18 +180,18 @@ class MenuOverlay(ft.Container):
             btn_load = ft.ElevatedButton(
                 label,
                 disabled=s["data"] is None,
-                on_click=lambda e, slot=s["slot"]: self.on_load_slot(slot),
+                on_click=self._wrap_click(lambda e, slot=s["slot"]: self.on_load_slot(slot)),
             )
             controls.append(btn_load)
 
             btn_delete = ft.OutlinedButton(
                 f"Apagar {title}",
                 disabled=s["data"] is None,
-                on_click=lambda e, slot=s["slot"]: self._delete_slot(slot),
+                on_click=self._wrap_click(lambda e, slot=s["slot"]: self._delete_slot(slot)),
             )
             controls.append(btn_delete)
 
-        controls.append(ft.OutlinedButton("Voltar", on_click=lambda e: self._build_start_menu()))
+        controls.append(self._secondary_btn("Voltar", lambda e: self._build_start_menu()))
         self._set_panel("Carregar Jogo", controls)
 
     def _build_save_menu(self):
@@ -194,11 +203,11 @@ class MenuOverlay(ft.Container):
             label = title if s["data"] else f"{title} (vazio)"
             btn = ft.ElevatedButton(
                 f"Salvar em {label}",
-                on_click=lambda e, slot=s["slot"]: self.on_save_slot(slot),
+                on_click=self._wrap_click(lambda e, slot=s["slot"]: self.on_save_slot(slot)),
             )
             controls.append(btn)
 
-        controls.append(ft.OutlinedButton("Voltar", on_click=lambda e: self._build_pause_menu()))
+        controls.append(self._secondary_btn("Voltar", lambda e: self._build_pause_menu()))
         self._set_panel("Salvar Jogo", controls)
 
     def _build_options_menu(self):
@@ -214,16 +223,30 @@ class MenuOverlay(ft.Container):
             options=[ft.dropdown.Option(text=label) for label, _ in CARD_BACK_OPTIONS],
         )
 
+        self.music_slider = ft.Slider(
+            min=0, max=1, divisions=10,
+            value=float(settings.get("music_volume", 0.5)), label="{value}"
+        )
+
+        self.sfx_slider = ft.Slider(
+            min=0, max=1, divisions=10,
+            value=float(settings.get("sfx_volume", 0.8)), label="{value}"
+        )
+
         self._set_panel(
             "Opções",
             [
+                ft.Text("Música de Fundo", size=14, color="#E5E7EB"),
+                self.music_slider,
+                ft.Text("Efeitos Sonoros", size=14, color="#E5E7EB"),
+                self.sfx_slider,
                 self.card_back_dd,
-                ft.ElevatedButton("Aplicar", on_click=self._apply_card_back),
-                ft.OutlinedButton("Voltar", on_click=lambda e: self._build_main_menu()),
+                self._primary_btn("Aplicar", self._apply_settings),
+                self._secondary_btn("Voltar", lambda e: self._build_main_menu()),
             ],
         )
 
-    def _apply_card_back(self, e):
+    def _apply_settings(self, e):
         selected_label = self.card_back_dd.value
         selected_path = LABEL_TO_PATH.get(selected_label)
 
@@ -238,8 +261,16 @@ class MenuOverlay(ft.Container):
 
         settings = load_settings(self.app_page)
         settings["card_back"] = selected_path
+        settings["music_volume"] = float(self.music_slider.value)
+        settings["sfx_volume"] = float(self.sfx_slider.value)
+        
         save_settings(self.app_page, settings)
-        self.on_set_card_back(selected_path)
+        self.on_apply_settings(settings)
+
+        self.app_page.overlay.append(
+            ft.SnackBar(ft.Text("Definições aplicadas com sucesso!"), open=True)
+        )
+        self.app_page.update()
 
     def _delete_slot(self, slot):
         delete_game(self.app_page, slot)
