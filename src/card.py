@@ -48,6 +48,11 @@ class Card(ft.GestureDetector):
         self.update()  # <-- Mudar de self.solitaire.update() para self.update()
 
     def move_on_top(self):
+        # OTIMIZAÇÃO: Verificar se as cartas a arrastar JÁ ESTÃO no fim da lista (topo visual)
+        # Se já estiverem, saímos da função e poupamos o peso do update total!
+        if self.solitaire.controls[-len(self.draggable_pile):] == self.draggable_pile:
+            return
+            
         for card in self.draggable_pile:
             self.solitaire.controls.remove(card)
             self.solitaire.controls.append(card)
@@ -64,6 +69,8 @@ class Card(ft.GestureDetector):
 
     def place(self, slot):
         original_slot = self.slot
+
+        self.move_on_top()
 
         if not self.solitaire.suppress_history and original_slot is not None:
             self._play_card_sound()
@@ -107,7 +114,7 @@ class Card(ft.GestureDetector):
     def start_drag(self, e: ft.DragStartEvent):
         if self.face_up:
             self.get_draggable_pile()
-            self.move_on_top()
+            #self.move_on_top()
 
     def drag(self, e: ft.DragUpdateEvent):
         if self.face_up:
