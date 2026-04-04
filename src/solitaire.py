@@ -27,7 +27,7 @@ class Rank:
 
 
 class Solitaire(ft.Stack):
-    def __init__(self, card_back="/images/card_back.png", play_card_sound=None, play_btn_sound=None):
+    def __init__(self, card_back="/images/card_back.png", play_card_sound=None, play_btn_sound=None, on_pause=None):
         super().__init__()
         self.controls = []
         self.width = SOLITAIRE_WIDTH
@@ -35,6 +35,8 @@ class Solitaire(ft.Stack):
         self.history = []
         self.suppress_history = False
         self.card_back = card_back
+
+        self.on_pause = on_pause  # Guardar a função de pausa
 
         # ====== SCORE / TIMER ======
         self.start_time = time.time()
@@ -148,6 +150,16 @@ class Solitaire(ft.Stack):
             on_click=lambda e: self.undo(),
         )
         self.controls.append(self.undo_btn)
+
+        # ADICIONAR BOTÃO DE MENU PARA TELEMÓVEL
+        self.pause_btn = ft.ElevatedButton(
+            "Menu",
+            icon="menu",  # <--- MUDAR AQUI: Usar apenas a palavra "menu" entre aspas
+            left=10,
+            top=SOLITAIRE_HEIGHT - 35,
+            on_click=lambda e: self.on_pause() if self.on_pause else None,
+        )
+        self.controls.append(self.pause_btn)
 
         self.update()
 

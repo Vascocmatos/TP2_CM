@@ -4,7 +4,7 @@ from solitaire import Solitaire
 from menu import MenuOverlay
 from state import load_settings
 from savegame import save_game, load_game
-
+import asyncio
 
 class GameApp(ft.Stack):
     def __init__(self, page: ft.Page):
@@ -13,22 +13,23 @@ class GameApp(ft.Stack):
         #self.expand = True
         self.settings = load_settings(self.app_page)
 
-                # 1. CRIAR OS CONTROLOS DE ÁUDIO
+        # 1. CRIAR OS CONTROLOS DE ÁUDIO (sem a "/" inicial no src)
         self.bg_music = fta.Audio(
-            src="/sounds/Balatro OST in the style of Masayoshi Takanaka.mp3",
-            autoplay=True,
+            src="sounds/Balatro.mp3",  # <-- SEM a barra inicial
+            #autoplay=True,
             volume=float(self.settings.get("music_volume", 0.5)),
             on_state_change=self.loop_music
         )
+        self.is_music_playing = False
         self.sfx_card = fta.Audio(
-            src="/sounds/som_carta.mp3",
+            src="sounds/som_carta.mp3",     # <-- SEM a barra inicial
             volume=float(self.settings.get("sfx_volume", 0.8)),
-            release_mode=fta.ReleaseMode.STOP  # <--- ADICIONAR AQUI
+            release_mode=fta.ReleaseMode.STOP
         )
         self.sfx_btn = fta.Audio(
-            src="/sounds/botao.mp3",
+            src="sounds/botao.mp3",         # <-- SEM a barra inicial
             volume=float(self.settings.get("sfx_volume", 0.8)),
-            release_mode=fta.ReleaseMode.STOP  # <--- ADICIONAR AQUI
+            release_mode=fta.ReleaseMode.STOP
         )
 
         # 2. REGISTAR COMO SERVICE (não overlay)
@@ -44,7 +45,8 @@ class GameApp(ft.Stack):
         self.solitaire = Solitaire(
             card_back=self.settings["card_back"],
             play_card_sound=self.play_card_sound,
-            play_btn_sound=self.play_btn_sound
+            play_btn_sound=self.play_btn_sound,
+            on_pause=self.toggle_pause  
         )
 
         self.menu = MenuOverlay(
@@ -66,20 +68,49 @@ class GameApp(ft.Stack):
     def play_card_sound(self):
         if self.sfx_card:
             async def _play():
-                await self.sfx_card.seek(0)  # Volta ao início da faixa
+                try:
+                    await self.sfx_card.seek(0)
+                except Exception:
+                    pass
                 await self.sfx_card.play()
             self.app_page.run_task(_play)
+
+    def start_bg_music(self):
+        if self.bg_music and not self.is_music_playing:
+            self.is_music_playing = True
+            
+            # Dizemos ao Flet que, a partir de agora, esta faixa pode tocar
+            self.bg_music.autoplay = True
+            self.bg_music.update()
+            
+            async def _play_music():
+                # A MAGIA ESTÁ AQUI: Esperamos meio segundo.
+                # Isto dá tempo ao som do botão de tocar primeiro, o que 
+                # diz ao browser "O utilizador clicou, desbloqueia o áudio!"
+                await asyncio.sleep(0.5)
+                
+                try:
+                    await self.bg_music.play()
+                except Exception as e:
+                    print(f"Erro ao tocar música: {e}")
+                    
+            self.app_page.run_task(_play_music)
 
     def play_btn_sound(self):
         if self.sfx_btn:
             async def _play():
-                await self.sfx_btn.seek(0)   # Volta ao início da faixa
+                try:
+                    await self.sfx_btn.seek(0)
+                except Exception:
+                    pass
                 await self.sfx_btn.play()
             self.app_page.run_task(_play)
 
     def loop_music(self, e):
         if e.data == "completed" and self.bg_music:
-            self.app_page.run_task(self.bg_music.play)
+            async def _replay():
+                await self.bg_music.play()
+            self.app_page.run_task(_replay)
 
     def apply_settings(self, settings):
         self.settings = settings
@@ -93,23 +124,30 @@ class GameApp(ft.Stack):
             self.bg_music.update()
             self.sfx_card.update()
             self.sfx_btn.update()
+            
+        self.app_page.update()  # <--- Adiciona isto para forçar a UI toda a sincronizar com o browser
 
     def new_game(self):
         self.controls.remove(self.solitaire)
         self.solitaire = Solitaire(
             card_back=self.settings["card_back"],
             play_card_sound=self.play_card_sound,
-            play_btn_sound=self.play_btn_sound
+            play_btn_sound=self.play_btn_sound,
+            on_pause=self.toggle_pause
         )
         self.controls.insert(0, self.solitaire)
         self.menu.hide()
+        
+        self.start_bg_music()  # <-- ADICIONA ISTO
         self.update()
 
     def continue_game(self):
         self.menu.hide()
+        self.start_bg_music()  # <-- ADICIONA ISTO
 
     def resume_game(self):
         self.menu.hide()
+        self.start_bg_music()  # <-- ADICIONA ISTO
 
     def toggle_pause(self):
         if self.menu.visible:
