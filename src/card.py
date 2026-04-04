@@ -39,13 +39,13 @@ class Card(ft.GestureDetector):
         self._play_card_sound()
         self.face_up = True
         self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
-        self.solitaire.update()
+        self.update()  # <-- Mudar de self.solitaire.update() para self.update()
 
     def turn_face_down(self):
         self._play_card_sound()
         self.face_up = False
         self.content.content.src = self.solitaire.card_back
-        self.solitaire.update()
+        self.update()  # <-- Mudar de self.solitaire.update() para self.update()
 
     def move_on_top(self):
         for card in self.draggable_pile:
@@ -117,7 +117,8 @@ class Card(ft.GestureDetector):
                     + self.draggable_pile.index(card) * CARD_OFFSET
                 )
                 card.left = max(0, self.left + e.local_delta.x)
-            self.solitaire.update()
+                # Atualizar apenas a carta específica em vez do jogo todo!
+                card.update()
 
     def drop(self, e: ft.DragEndEvent):
         if self.face_up:

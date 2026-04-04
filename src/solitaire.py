@@ -78,7 +78,8 @@ class Solitaire(ft.Stack):
         elapsed = int(time.time() - self.start_time)
         score = elapsed + self.undo_penalty
         self.score_text.value = f"Tempo: {self._format_time(elapsed)}  |  Pontos: {score}"
-        self.update()
+        # Atualizar APENAS o texto, e não o self (que é o tabuleiro inteiro)
+        self.score_text.update()
 
     def _on_timer_tick(self, e):
         self._update_score_text()
