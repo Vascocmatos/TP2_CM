@@ -1,8 +1,13 @@
+import asyncio
+
+
+
 SOLITAIRE_WIDTH = 1000
 SOLITAIRE_HEIGHT = 500
 CARD_HEIGHT = 100
 
 import random
+import time
 
 import flet as ft
 from card import Card, CARD_OFFSET
@@ -30,6 +35,24 @@ class Solitaire(ft.Stack):
         self.history = []
         self.suppress_history = False
         self.card_back = card_back
+
+        # ====== SCORE / TIMER ======
+        self.start_time = time.time()
+        self.undo_penalty = 0
+
+        self.score_text = ft.Text(
+            "Tempo: 00:00  |  Pontos: 0",
+            size=16,
+            weight=ft.FontWeight.BOLD,
+        )
+        self.score_box = ft.Container(
+            content=self.score_text,
+            left=SOLITAIRE_WIDTH / 2 - 120,
+            top=SOLITAIRE_HEIGHT - 30,
+        )
+
+        self._timer_task_running = False
+
         
         self.play_card_sound = play_card_sound
         self.play_btn_sound = play_btn_sound
@@ -38,6 +61,32 @@ class Solitaire(ft.Stack):
         self.create_card_deck()
         self.create_slots()
         self.deal_cards()
+
+        # adiciona score ao stack
+        self.controls.append(self.score_box)
+
+        # start timer loop (sem ft.Timer)
+        self._timer_task_running = True
+        self.page.run_task(self._timer_loop)
+
+    def _format_time(self, seconds):
+        m = seconds // 60
+        s = seconds % 60
+        return f"{m:02d}:{s:02d}"
+
+    def _update_score_text(self):
+        elapsed = int(time.time() - self.start_time)
+        score = elapsed + self.undo_penalty
+        self.score_text.value = f"Tempo: {self._format_time(elapsed)}  |  Pontos: {score}"
+        self.update()
+
+    def _on_timer_tick(self, e):
+        self._update_score_text()
+
+    def _reset_score_timer(self):
+        self.start_time = time.time()
+        self.undo_penalty = 0
+        self._update_score_text()
 
     def create_card_deck(self):
         suites = [
@@ -151,6 +200,10 @@ class Solitaire(ft.Stack):
         if not self.history:
             return
         move = self.history.pop()
+
+        # penalização
+        self.undo_penalty += 5
+        self._update_score_text()
         
         if self.play_card_sound:
             self.play_card_sound()
@@ -237,6 +290,10 @@ class Solitaire(ft.Stack):
         self.history = []
         self.create_card_deck()
         self.create_slots()
+        self.controls.extend(self.cards)
+
+        # reset timer/score
+        self._reset_score_timer()
         self.controls.extend(self.cards) 
 
         card_map = {}
@@ -268,3 +325,13 @@ class Solitaire(ft.Stack):
 
         self.suppress_history = False
         self.update()
+
+
+
+    async def _timer_loop(self):
+        while self._timer_task_running:
+            self._update_score_text()
+            await asyncio.sleep(1)
+
+    def will_unmount(self):
+        self._timer_task_running = False
