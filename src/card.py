@@ -114,21 +114,62 @@ class Card(ft.GestureDetector):
     def start_drag(self, e: ft.DragStartEvent):
         if self.face_up:
             self.get_draggable_pile()
-            #self.move_on_top()
+            
+            # 1. CRIAR "GHOST CARDS" NO TOPO PARA O ARRASTO
+            self.solitaire.ghosts = []
+            for c in self.draggable_pile:
+                # Esconde a imagem da carta original (mas mantém o clique ativo)
+                c.content.opacity = 0
+                c.update()
+                
+                # Cria um clone exato que vai ficar por cima de tudo visualmente
+                ghost = ft.Container(
+                    width=CARD_WIDTH,
+                    height=CARD_HEIGHT,
+                    top=c.top,
+                    left=c.left,
+                    border_radius=ft.BorderRadius.all(6),
+                    content=ft.Image(src=c.content.content.src)
+                )
+                self.solitaire.ghosts.append(ghost)
+                self.solitaire.controls.append(ghost)
+                
+            self.solitaire.update()
 
     def drag(self, e: ft.DragUpdateEvent):
         if self.face_up:
-            for card in self.draggable_pile:
-                card.top = (
+            for i, c in enumerate(self.draggable_pile):
+                # 2. ATUALIZAR POSIÇÃO DA CARTA ORIGINAL (INVISÍVEL)
+                c.top = (
                     max(0, self.top + e.local_delta.y)
-                    + self.draggable_pile.index(card) * CARD_OFFSET
+                    + i * CARD_OFFSET
                 )
-                card.left = max(0, self.left + e.local_delta.x)
-                # Atualizar apenas a carta específica em vez do jogo todo!
-                card.update()
+                c.left = max(0, self.left + e.local_delta.x)
+                c.update()
+
+                # 3. ATUALIZAR POSIÇÃO DO CLONE VISUAL
+                if hasattr(self.solitaire, "ghosts") and i < len(self.solitaire.ghosts):
+                    ghost = self.solitaire.ghosts[i]
+                    ghost.top = c.top
+                    ghost.left = c.left
+                    ghost.update()
 
     def drop(self, e: ft.DragEndEvent):
         if self.face_up:
+            # 4. LIMPAR OS CLONES QUANDO LARGAMOS AS CARTAS
+            if hasattr(self.solitaire, "ghosts"):
+                for ghost in self.solitaire.ghosts:
+                    if ghost in self.solitaire.controls:
+                        self.solitaire.controls.remove(ghost)
+                self.solitaire.ghosts.clear()
+
+            # 5. MOSTRAR AS CARTAS ORIGINAIS NOVAMENTE
+            for c in self.draggable_pile:
+                c.content.opacity = 1
+            
+            # 6. MOVER AS ORIGINAIS PARA O TOPO (agora é seguro, o arrasto já acabou)
+            self.move_on_top()
+
             for slot in self.solitaire.tableau:
                 if (
                     abs(self.top - (slot.top + len(slot.pile) * CARD_OFFSET))
