@@ -13,7 +13,7 @@ class GameApp(ft.Stack):
         self.expand = True
         self.settings = load_settings(self.app_page)
 
-        # 1. CRIAR OS CONTROLOS DE ÁUDIO
+                # 1. CRIAR OS CONTROLOS DE ÁUDIO
         self.bg_music = fta.Audio(
             src="/sounds/Balatro OST in the style of Masayoshi Takanaka.mp3",
             autoplay=True,
@@ -22,11 +22,13 @@ class GameApp(ft.Stack):
         )
         self.sfx_card = fta.Audio(
             src="/sounds/som_carta.mp3",
-            volume=float(self.settings.get("sfx_volume", 0.8))
+            volume=float(self.settings.get("sfx_volume", 0.8)),
+            release_mode=fta.ReleaseMode.STOP  # <--- ADICIONAR AQUI
         )
         self.sfx_btn = fta.Audio(
             src="/sounds/botao.mp3",
-            volume=float(self.settings.get("sfx_volume", 0.8))
+            volume=float(self.settings.get("sfx_volume", 0.8)),
+            release_mode=fta.ReleaseMode.STOP  # <--- ADICIONAR AQUI
         )
 
         # 2. REGISTAR COMO SERVICE (não overlay)
@@ -60,14 +62,20 @@ class GameApp(ft.Stack):
         self.controls = [self.solitaire, self.menu]
         self.menu.show_main()
 
-    # FUNÇÕES SEGURAS PARA TOCAR ÁUDIO
+        # FUNÇÕES SEGURAS PARA TOCAR ÁUDIO
     def play_card_sound(self):
         if self.sfx_card:
-            self.app_page.run_task(self.sfx_card.play)
+            async def _play():
+                await self.sfx_card.seek(0)  # Volta ao início da faixa
+                await self.sfx_card.play()
+            self.app_page.run_task(_play)
 
     def play_btn_sound(self):
         if self.sfx_btn:
-            self.app_page.run_task(self.sfx_btn.play)
+            async def _play():
+                await self.sfx_btn.seek(0)   # Volta ao início da faixa
+                await self.sfx_btn.play()
+            self.app_page.run_task(_play)
 
     def loop_music(self, e):
         if e.data == "completed" and self.bg_music:
