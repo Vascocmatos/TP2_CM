@@ -146,6 +146,9 @@ class Card(ft.GestureDetector):
         if self.slot in self.solitaire.tableau:
             if not self.face_up and len(self.draggable_pile) == 1:
                 self.turn_face_up()
+                # ADICIONAR ESTAS DUAS LINHAS PARA O UNDO FUNCIONAR:
+                if self.solitaire.history:
+                    self.solitaire.history[-1]["flipped_cards"].append(self)
         elif self.slot == self.solitaire.stock:
             if len(self.solitaire.stock.pile) == 0:
                 self.solitaire.restart_stock()
