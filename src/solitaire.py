@@ -310,29 +310,39 @@ class Solitaire(ft.Stack):
 
     def load_state(self, state):
         self.suppress_history = True
-        self.controls.clear()
-        self.history = []
-        self.create_card_deck()
-        self.create_slots()
-        self.controls.extend(self.cards)
+        self.history.clear()
+        
+        # 1. Esvazia todas as pilhas atuais
+        for slot in [self.stock, self.waste] + self.foundations + self.tableau:
+            slot.pile.clear()
 
-        # reset timer/score
-        self._reset_score_timer()
-        self.controls.extend(self.cards) 
-
+        # 2. Cria mapa das cartas atuais para as podermos encontrar
         card_map = {}
         for c in self.cards:
+            c.slot = None
             card_map[(c.suite.name, c.rank.name)] = c
 
-        def place_list(cards, slot):
-            for card_data in cards:
+        # 3. Função auxiliar para colocar cartas diretamente nos seus lugares
+        def place_list(cards_data, slot):
+            for i, card_data in enumerate(cards_data):
                 card = card_map[(card_data["suite"], card_data["rank"])]
-                card.place(slot)
+                card.slot = slot
+                slot.pile.append(card)
+                
+                # Coloca a carta nas coordenadas corretas
+                if slot in self.tableau:
+                    card.top = slot.top + i * CARD_OFFSET
+                else:
+                    card.top = slot.top
+                card.left = slot.left
+                
+                # Vira a face para cima ou baixo consoante o save
                 if card_data["face_up"]:
                     card.turn_face_up()
                 else:
                     card.turn_face_down()
 
+        # 4. Distribui os dados guardados para cada secção do jogo
         for slot, pile_data in zip(self.tableau, state["tableau"]):
             place_list(pile_data, slot)
         for slot, pile_data in zip(self.foundations, state["foundations"]):
@@ -340,13 +350,18 @@ class Solitaire(ft.Stack):
         place_list(state["stock"], self.stock)
         place_list(state["waste"], self.waste)
 
-        for card in list(self.cards):
+        # 5. Corrige a ordem das camadas (Z-index)
+        # Retira todas as cartas da lista e volta a adicioná-las na ordem certa
+        for card in self.cards:
             if card in self.controls:
                 self.controls.remove(card)
-        for slot in [self.stock, self.waste, *self.foundations, *self.tableau]:
+                
+        for slot in [self.stock, self.waste] + self.foundations + self.tableau:
             for card in slot.pile:
                 self.controls.append(card)
 
+        # 6. Repõe o tempo e atualiza a interface
+        self._reset_score_timer()
         self.suppress_history = False
         self.update()
 

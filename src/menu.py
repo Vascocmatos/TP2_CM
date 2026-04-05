@@ -53,6 +53,7 @@ class MenuOverlay(ft.Container):
 
         self.content = self.panel
         self.mode = "main"
+        self.game_in_progress = False  # <-- ADICIONAR ESTA LINHA
 
     def _play_btn_sound(self):
         if self.play_btn_sound:
@@ -113,15 +114,20 @@ class MenuOverlay(ft.Container):
 
     def _build_main_menu(self):
         self.mode = "main"
-        self._set_panel(
-            "Solitaire",
-            [
-                self._primary_btn("Start", lambda e: self._build_start_menu()),
-                self._secondary_btn("Opções", lambda e: self._build_options_menu()),
-                self._secondary_btn("Tutorial", lambda e: self._build_tutorial_menu()),
-                self._secondary_btn("Quit", lambda e: self.on_quit()),
-            ],
-        )
+        
+        controls = []
+        # Se houver um jogo a decorrer, mostramos o botão Retomar no topo
+        if getattr(self, "game_in_progress", False):
+            controls.append(self._primary_btn("Retomar Jogo", lambda e: self.on_resume()))
+            
+        controls.extend([
+            self._primary_btn("Iniciar Jogo", lambda e: self._build_start_menu()),
+            self._secondary_btn("Opções", lambda e: self._build_options_menu()),
+            self._secondary_btn("Tutorial", lambda e: self._build_tutorial_menu()),
+            self._secondary_btn("Quit", lambda e: self.on_quit()),
+        ])
+        
+        self._set_panel("Solitaire", controls)
 
     def _build_tutorial_menu(self):
         self.mode = "tutorial"
@@ -135,11 +141,19 @@ class MenuOverlay(ft.Container):
             "• Cada Undo adiciona +5 pontos (pior pontuação).\n"
             "• Pontuação = tempo total + penalizações.\n"
         )
+        
+        # --- VOLTAR INTELIGENTE ---
+        def go_back(e):
+            if getattr(self, "game_in_progress", False):
+                self._build_pause_menu()
+            else:
+                self._build_main_menu()
+
         self._set_panel(
             "Tutorial",
             [
                 ft.Text(texto, size=14),
-                self._secondary_btn("Voltar", lambda e: self._build_main_menu()),
+                self._secondary_btn("Voltar", go_back),
             ],
         )
 
@@ -233,6 +247,13 @@ class MenuOverlay(ft.Container):
             value=float(settings.get("sfx_volume", 0.8)), label="{value}"
         )
 
+        # --- VOLTAR INTELIGENTE ---
+        def go_back(e):
+            if getattr(self, "game_in_progress", False):
+                self._build_pause_menu()
+            else:
+                self._build_main_menu()
+
         self._set_panel(
             "Opções",
             [
@@ -242,7 +263,7 @@ class MenuOverlay(ft.Container):
                 self.sfx_slider,
                 self.card_back_dd,
                 self._primary_btn("Aplicar", self._apply_settings),
-                self._secondary_btn("Voltar", lambda e: self._build_main_menu()),
+                self._secondary_btn("Voltar", go_back),
             ],
         )
 
@@ -285,5 +306,6 @@ class MenuOverlay(ft.Container):
         self._build_pause_menu()
 
     def hide(self):
+        self.game_in_progress = True  # <-- ADICIONAR ESTA LINHA
         self.visible = False
         self.update()

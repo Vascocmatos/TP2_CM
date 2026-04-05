@@ -64,6 +64,26 @@ class GameApp(ft.Stack):
         self.controls = [self.solitaire, self.menu]
         self.menu.show_main()
 
+    def _restore_music_volume(self):
+        if self.bg_music:
+            self.bg_music.volume = float(self.settings.get("music_volume", 0.5))
+            try:
+                self.bg_music.update()
+            except Exception:
+                pass
+
+    def _muffle_music_volume(self):
+        if self.bg_music:
+            # Reduz o volume para 30% do normal (ajusta este 0.3 como preferires)
+            normal_vol = float(self.settings.get("music_volume", 0.5))
+            self.bg_music.volume = normal_vol * 0.3
+            try:
+                self.bg_music.update()
+            except Exception:
+                pass
+
+
+
         # FUNÇÕES SEGURAS PARA TOCAR ÁUDIO
     def play_card_sound(self):
         if self.sfx_card:
@@ -117,7 +137,12 @@ class GameApp(ft.Stack):
         self.solitaire.set_card_back(settings["card_back"])
 
         if self.bg_music:
-            self.bg_music.volume = float(settings.get("music_volume", 0.5))
+            # Se o menu estiver visível, aplica o novo volume mas mantém "abafado"
+            if self.menu.visible:
+                self.bg_music.volume = float(settings.get("music_volume", 0.5)) * 0.3
+            else:
+                self.bg_music.volume = float(settings.get("music_volume", 0.5))
+
             self.sfx_card.volume = float(settings.get("sfx_volume", 0.8))
             self.sfx_btn.volume = float(settings.get("sfx_volume", 0.8))
 
@@ -125,8 +150,7 @@ class GameApp(ft.Stack):
             self.sfx_card.update()
             self.sfx_btn.update()
             
-        self.app_page.update()  # <--- Adiciona isto para forçar a UI toda a sincronizar com o browser
-
+        self.app_page.update()
     def new_game(self):
         self.controls.remove(self.solitaire)
         self.solitaire = Solitaire(
@@ -138,23 +162,29 @@ class GameApp(ft.Stack):
         self.controls.insert(0, self.solitaire)
         self.menu.hide()
         
-        self.start_bg_music()  # <-- ADICIONA ISTO
+        self._restore_music_volume()  # <-- Restaura o volume
+        self.start_bg_music()
         self.update()
 
     def continue_game(self):
         self.menu.hide()
-        self.start_bg_music()  # <-- ADICIONA ISTO
+        self._restore_music_volume()  # <-- Restaura o volume
+        self.start_bg_music()
 
     def resume_game(self):
         self.menu.hide()
-        self.start_bg_music()  # <-- ADICIONA ISTO
+        self._restore_music_volume()  # <-- Restaura o volume
+        self.start_bg_music()
 
     def toggle_pause(self):
         if self.menu.visible:
             if self.menu.mode == "pause":
                 self.menu.hide()
+                self._restore_music_volume()  # <-- Restaura quando fecha a pausa
         else:
             self.menu.show_pause()
+            self._muffle_music_volume()   # <-- Abafa quando abre a pausa
+
 
     def quit_game(self):
         try:
@@ -180,6 +210,7 @@ class GameApp(ft.Stack):
         if data:
             self.solitaire.load_state(data)
         self.menu.hide()
+        self._restore_music_volume()      # <-- Restaura após fazer o load
 
 
 def main(page: ft.Page):
