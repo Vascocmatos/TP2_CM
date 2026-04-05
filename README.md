@@ -1,4 +1,8 @@
-# Solitário - TP2_85234
+# Solitário - TP2 85234
+
+repositorio guit: https://github.com/Vascocmatos/TP2_CM.git
+
+
 
 Este trabalho é a criação do jogo Solitário desenvolvida em Python utilizando a framework Flet. O projeto cumpre todos os requisitos obrigatórios e inclui diversas funcionalidades extra que se basearam na melhoria visual do jogo, incluindo visibilidade e performan-se, adicionado mecânicas e particularidades de jogabilidade e Quality of life incluindo sistema de audio.
 
