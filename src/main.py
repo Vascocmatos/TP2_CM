@@ -10,37 +10,42 @@ class GameApp(ft.Stack):
     def __init__(self, page: ft.Page):
         super().__init__(width=1000, height=650)
         self.app_page = page
-        #self.expand = True
         self.settings = load_settings(self.app_page)
+        
+        # 1. VERIFICAR SE ESTAMOS NO BROWSER
+        self.is_web = self.app_page.web
 
-        # 1. CRIAR OS CONTROLOS DE ÁUDIO (sem a "/" inicial no src)
-        self.bg_music = fta.Audio(
-            src="sounds/Balatro.mp3",  # <-- SEM a barra inicial
-            #autoplay=True,
-            volume=float(self.settings.get("music_volume", 0.5)),
-            on_state_change=self.loop_music
-        )
-        self.is_music_playing = False
-        self.sfx_card = fta.Audio(
-            src="sounds/som_carta.mp3",     # <-- SEM a barra inicial
-            volume=float(self.settings.get("sfx_volume", 0.8)),
-            release_mode=fta.ReleaseMode.STOP
-        )
-        self.sfx_btn = fta.Audio(
-            src="sounds/botao.mp3",         # <-- SEM a barra inicial
-            volume=float(self.settings.get("sfx_volume", 0.8)),
-            release_mode=fta.ReleaseMode.STOP
-        )
-
-        # 2. REGISTAR COMO SERVICE (não overlay)
-        if hasattr(self.app_page, "services") and self.app_page.services is not None:
-            self.app_page.services.extend([self.bg_music, self.sfx_card, self.sfx_btn])
+        # 2. CARREGAR ÁUDIO APENAS SE NÃO FOR BROWSER
+        if not self.is_web:
+            self.bg_music = fta.Audio(
+                src="sounds/Balatro.mp3",
+                volume=float(self.settings.get("music_volume", 0.5)),
+                on_state_change=self.loop_music
+            )
+            self.sfx_card = fta.Audio(
+                src="sounds/som_carta.mp3",
+                volume=float(self.settings.get("sfx_volume", 0.8)),
+                release_mode=fta.ReleaseMode.STOP
+            )
+            self.sfx_btn = fta.Audio(
+                src="sounds/botao.mp3",
+                volume=float(self.settings.get("sfx_volume", 0.8)),
+                release_mode=fta.ReleaseMode.STOP
+            )
+            
+            # Adicionar à página
+            if hasattr(self.app_page, "services") and self.app_page.services is not None:
+                self.app_page.services.extend([self.bg_music, self.sfx_card, self.sfx_btn])
+            else:
+                self.app_page.overlay.extend([self.bg_music, self.sfx_card, self.sfx_btn])
         else:
-            # fallback antigo
-            self.app_page.overlay.extend([self.bg_music, self.sfx_card, self.sfx_btn])
+            # Se for Web/Telemóvel, anulamos os objetos de áudio
+            self.bg_music = None
+            self.sfx_card = None
+            self.sfx_btn = None
 
+        self.is_music_playing = False
         self.app_page.update()
-
         # 3. PASSAR APENAS FUNÇÕES SEGURAS PARA OS OUTROS FICHEIROS
         self.solitaire = Solitaire(
             card_back=self.settings["card_back"],
@@ -74,7 +79,6 @@ class GameApp(ft.Stack):
 
     def _muffle_music_volume(self):
         if self.bg_music:
-            # Reduz o volume para 30% do normal (ajusta este 0.3 como preferires)
             normal_vol = float(self.settings.get("music_volume", 0.5))
             self.bg_music.volume = normal_vol * 0.3
             try:
@@ -82,38 +86,28 @@ class GameApp(ft.Stack):
             except Exception:
                 pass
 
-
-
-        # FUNÇÕES SEGURAS PARA TOCAR ÁUDIO
+    # FUNÇÕES SEGURAS PARA TOCAR ÁUDIO (Resolve a falta de som na Web)
     def play_card_sound(self):
         if self.sfx_card:
             async def _play():
                 try:
                     await self.sfx_card.seek(0)
                 except Exception:
+                    pass  
+                try:
+                    await self.sfx_card.play()
+                except Exception:
                     pass
-                await self.sfx_card.play()
             self.app_page.run_task(_play)
 
     def start_bg_music(self):
         if self.bg_music and not self.is_music_playing:
             self.is_music_playing = True
-            
-            # Dizemos ao Flet que, a partir de agora, esta faixa pode tocar
-            self.bg_music.autoplay = True
-            self.bg_music.update()
-            
             async def _play_music():
-                # A MAGIA ESTÁ AQUI: Esperamos meio segundo.
-                # Isto dá tempo ao som do botão de tocar primeiro, o que 
-                # diz ao browser "O utilizador clicou, desbloqueia o áudio!"
-                await asyncio.sleep(0.5)
-                
                 try:
                     await self.bg_music.play()
                 except Exception as e:
                     print(f"Erro ao tocar música: {e}")
-                    
             self.app_page.run_task(_play_music)
 
     def play_btn_sound(self):
@@ -122,14 +116,24 @@ class GameApp(ft.Stack):
                 try:
                     await self.sfx_btn.seek(0)
                 except Exception:
+                    pass  
+                try:
+                    await self.sfx_btn.play()
+                except Exception:
                     pass
-                await self.sfx_btn.play()
             self.app_page.run_task(_play)
 
     def loop_music(self, e):
         if e.data == "completed" and self.bg_music:
             async def _replay():
-                await self.bg_music.play()
+                try:
+                    await self.bg_music.seek(0)
+                except Exception:
+                    pass
+                try:
+                    await self.bg_music.play()
+                except Exception:
+                    pass
             self.app_page.run_task(_replay)
 
     def apply_settings(self, settings):
@@ -137,7 +141,6 @@ class GameApp(ft.Stack):
         self.solitaire.set_card_back(settings["card_back"])
 
         if self.bg_music:
-            # Se o menu estiver visível, aplica o novo volume mas mantém "abafado"
             if self.menu.visible:
                 self.bg_music.volume = float(settings.get("music_volume", 0.5)) * 0.3
             else:
@@ -151,6 +154,7 @@ class GameApp(ft.Stack):
             self.sfx_btn.update()
             
         self.app_page.update()
+
     def new_game(self):
         self.controls.remove(self.solitaire)
         self.solitaire = Solitaire(
@@ -162,29 +166,28 @@ class GameApp(ft.Stack):
         self.controls.insert(0, self.solitaire)
         self.menu.hide()
         
-        self._restore_music_volume()  # <-- Restaura o volume
+        self._restore_music_volume()
         self.start_bg_music()
         self.update()
 
     def continue_game(self):
         self.menu.hide()
-        self._restore_music_volume()  # <-- Restaura o volume
+        self._restore_music_volume()
         self.start_bg_music()
 
     def resume_game(self):
         self.menu.hide()
-        self._restore_music_volume()  # <-- Restaura o volume
+        self._restore_music_volume()
         self.start_bg_music()
 
     def toggle_pause(self):
         if self.menu.visible:
             if self.menu.mode == "pause":
                 self.menu.hide()
-                self._restore_music_volume()  # <-- Restaura quando fecha a pausa
+                self._restore_music_volume()
         else:
             self.menu.show_pause()
-            self._muffle_music_volume()   # <-- Abafa quando abre a pausa
-
+            self._muffle_music_volume()
 
     def quit_game(self):
         try:
@@ -210,9 +213,7 @@ class GameApp(ft.Stack):
         if data:
             self.solitaire.load_state(data)
         self.menu.hide()
-        self._restore_music_volume()      # <-- Restaura após fazer o load
-
-
+        self._restore_music_volume()
 
 
 def main(page: ft.Page):
@@ -221,8 +222,6 @@ def main(page: ft.Page):
 
     app = GameApp(page)
     
-    # O SEGREDO: Colocar o app dentro de uma Stack raiz que preenche o ecrã.
-    # Assim, o app pode ter o seu tamanho original de 1000x650 sem o Flutter cortar!
     root_stack = ft.Stack([app], expand=True)
     page.add(root_stack)
     
@@ -232,7 +231,6 @@ def main(page: ft.Page):
             if page.width == 0 or page.height == 0:
                 return
                 
-            # 1. Ajustar para a largura REAL das cartas (720px) em vez dos 1000px do fundo
             GAME_W = 720
             GAME_H = 600
             
@@ -242,16 +240,15 @@ def main(page: ft.Page):
             
             app.scale = ft.Scale(scale=final_scale, alignment=ft.Alignment(-1.0, -1.0))
             
-            # 2. Calcular apenas a sobra horizontal para o centrar na perfeição
             sobra_w = page.width - (GAME_W * final_scale)
             
             app.left = sobra_w / 2
-            # 3. Mini borda fixa no topo em vez de centrar na vertical!
             app.top = 25 
             
             app.update()
 
     page.on_resize = on_resize
     on_resize(None)
+
 
 ft.run(main, assets_dir="assets")
