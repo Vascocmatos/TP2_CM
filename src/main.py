@@ -12,10 +12,11 @@ class GameApp(ft.Stack):
         self.app_page = page
         self.settings = load_settings(self.app_page)
         
-        # 1. VERIFICAR SE ESTAMOS NO BROWSER
+        # Determina o ambiente de execução para aplicar configurações específicas à plataforma.
         self.is_web = self.app_page.web
 
-        # 2. CARREGAR ÁUDIO APENAS SE NÃO FOR BROWSER
+        # A biblioteca de áudio atual comporta restrições em ambiente browser.
+        # Os componentes de áudio são instanciados exclusivamente para clientes Desktop/Mobile.
         if not self.is_web:
             self.bg_music = fta.Audio(
                 src="sounds/Balatro.mp3",
@@ -33,20 +34,19 @@ class GameApp(ft.Stack):
                 release_mode=fta.ReleaseMode.STOP
             )
             
-            # Adicionar à página
             if hasattr(self.app_page, "services") and self.app_page.services is not None:
                 self.app_page.services.extend([self.bg_music, self.sfx_card, self.sfx_btn])
             else:
                 self.app_page.overlay.extend([self.bg_music, self.sfx_card, self.sfx_btn])
         else:
-            # Se for Web/Telemóvel, anulamos os objetos de áudio
             self.bg_music = None
             self.sfx_card = None
             self.sfx_btn = None
 
         self.is_music_playing = False
         self.app_page.update()
-        # 3. PASSAR APENAS FUNÇÕES SEGURAS PARA OS OUTROS FICHEIROS
+        
+        # Injeção de dependências: Transmissão de funções seguras para manipulação assíncrona da interface e som.
         self.solitaire = Solitaire(
             card_back=self.settings["card_back"],
             play_card_sound=self.play_card_sound,
@@ -86,7 +86,8 @@ class GameApp(ft.Stack):
             except Exception:
                 pass
 
-    # FUNÇÕES SEGURAS PARA TOCAR ÁUDIO (Resolve a falta de som na Web)
+    # Wrappers assíncronos para invocação dos métodos de reprodução multimédia
+    # com o objetivo de capturar excepções inerentes à API da plataforma de alojamento.
     def play_card_sound(self):
         if self.sfx_card:
             async def _play():
@@ -218,7 +219,9 @@ class GameApp(ft.Stack):
 
 def main(page: ft.Page):
     page.on_error = lambda e: print("Page error:", e.data)
-    page.padding = 0  # Remover margens para usar o ecrã todo
+    
+    # Anulação do padding global para otimizar o escalonamento em diferentes resoluções.
+    page.padding = 0  
 
     app = GameApp(page)
     
@@ -234,6 +237,7 @@ def main(page: ft.Page):
             GAME_W = 720
             GAME_H = 600
             
+            # Cálculo de transformações afins para manter o rácio da geometria da tela, maximizando o espaço em uso.
             scale_w = page.width / GAME_W
             scale_h = page.height / GAME_H
             final_scale = min(scale_w, scale_h, 1.0)
@@ -249,6 +253,5 @@ def main(page: ft.Page):
 
     page.on_resize = on_resize
     on_resize(None)
-
 
 ft.run(main, assets_dir="assets")

@@ -1,11 +1,4 @@
 import asyncio
-
-
-
-SOLITAIRE_WIDTH = 1000
-SOLITAIRE_HEIGHT = 500
-CARD_HEIGHT = 100
-
 import random
 import time
 
@@ -13,6 +6,9 @@ import flet as ft
 from card import Card, CARD_OFFSET
 from slot import Slot
 
+SOLITAIRE_WIDTH = 1000
+SOLITAIRE_HEIGHT = 500
+CARD_HEIGHT = 100
 
 class Suite:
     def __init__(self, suite_name, suite_color):
@@ -36,9 +32,9 @@ class Solitaire(ft.Stack):
         self.suppress_history = False
         self.card_back = card_back
 
-        self.on_pause = on_pause  # Guardar a função de pausa
+        self.on_pause = on_pause 
 
-        # ====== SCORE / TIMER ======
+        # Variáveis relativas à quantificação temporal e cálculo da métrica de eficiência.
         self.start_time = time.time()
         self.undo_penalty = 0
 
@@ -55,7 +51,6 @@ class Solitaire(ft.Stack):
 
         self._timer_task_running = False
 
-        
         self.play_card_sound = play_card_sound
         self.play_btn_sound = play_btn_sound
 
@@ -64,10 +59,10 @@ class Solitaire(ft.Stack):
         self.create_slots()
         self.deal_cards()
 
-        # adiciona score ao stack
+        # Integração da componente de monitorização (score/tempo) no subgrafo de renderização.
         self.controls.append(self.score_box)
 
-        # start timer loop (sem ft.Timer)
+        # Iniciação da thread secundária responsável pela atualização do display de progresso temporal.
         self._timer_task_running = True
         self.page.run_task(self._timer_loop)
 
@@ -81,7 +76,7 @@ class Solitaire(ft.Stack):
         score = elapsed + self.undo_penalty
         self.score_text.value = f"Tempo: {self._format_time(elapsed)}  |  Pontos: {score}"
         
-        # Tenta atualizar o texto. Se o Flet disser que ainda não está no ecrã, ignora em silêncio.
+        # Abstração de exceções provenientes de assincronismos de estado aquando da destruição ou desmontagem de UI.
         try:
             self.score_text.update()
         except Exception:
@@ -151,17 +146,16 @@ class Solitaire(ft.Stack):
         )
         self.controls.append(self.undo_btn)
 
-        # --- NOVO: BOTÃO DE DICA ---
         self.hint_btn = ft.ElevatedButton(
             "Dica",
-            icon="lightbulb_outline", # <-- Alterar apenas esta linha (usar string)
+            icon="lightbulb_outline",
             left=self.undo_btn.left + 80,
             top=self.reset_btn.top,
             on_click=self.get_hint,
         )
         self.controls.append(self.hint_btn)
 
-        # ADICIONAR BOTÃO DE MENU PARA TELEMÓVEL
+        # Configuração do botão de opções principais, ajustado espacialmente para ecrãs menores.
         self.pause_btn = ft.ElevatedButton(
             "Menu",
             icon="menu",
@@ -228,7 +222,7 @@ class Solitaire(ft.Stack):
             return
         move = self.history.pop()
 
-        # penalização
+        # Aplicação da penalidade inerente à recuperação do estado anterior na árvore de histórico.
         self.undo_penalty += 5
         self._update_score_text()
         
@@ -241,9 +235,7 @@ class Solitaire(ft.Stack):
             card.slot = move["from"]
             move["from"].pile.append(card)
             
-            # --- ADICIONAR ESTAS 3 LINHAS PARA CORRIGIR AS CAMADAS ---
-            # Remove a carta da lista e volta a adicioná-la no fim
-            # para garantir que fica por cima das outras visualmente
+            # Reposicionamento indexado no conjunto genérico dos elementos do painel principal para reestruturar Z-Index de profundidade de visualização.
             if card in self.controls:
                 self.controls.remove(card)
                 self.controls.append(card)
@@ -322,37 +314,35 @@ class Solitaire(ft.Stack):
         self.suppress_history = True
         self.history.clear()
         
-        # 1. Esvazia todas as pilhas atuais
+        # Rotina de inicialização de estrutura de pilhas.
         for slot in [self.stock, self.waste] + self.foundations + self.tableau:
             slot.pile.clear()
 
-        # 2. Cria mapa das cartas atuais para as podermos encontrar
+        # Elaboração de matriz referencial de instâncias de cartas em memória para alocação de atributos persistidos.
         card_map = {}
         for c in self.cards:
             c.slot = None
             card_map[(c.suite.name, c.rank.name)] = c
 
-        # 3. Função auxiliar para colocar cartas diretamente nos seus lugares
+        # Utilitário de inserção da entidade nas coordenadas bidimensionais parametrizadas.
         def place_list(cards_data, slot):
             for i, card_data in enumerate(cards_data):
                 card = card_map[(card_data["suite"], card_data["rank"])]
                 card.slot = slot
                 slot.pile.append(card)
                 
-                # Coloca a carta nas coordenadas corretas
                 if slot in self.tableau:
                     card.top = slot.top + i * CARD_OFFSET
                 else:
                     card.top = slot.top
                 card.left = slot.left
                 
-                # Vira a face para cima ou baixo consoante o save
                 if card_data["face_up"]:
                     card.turn_face_up()
                 else:
                     card.turn_face_down()
 
-        # 4. Distribui os dados guardados para cada secção do jogo
+        # Restauro dos tensores persistidos em repositório na topografia da aplicação.
         for slot, pile_data in zip(self.tableau, state["tableau"]):
             place_list(pile_data, slot)
         for slot, pile_data in zip(self.foundations, state["foundations"]):
@@ -360,8 +350,7 @@ class Solitaire(ft.Stack):
         place_list(state["stock"], self.stock)
         place_list(state["waste"], self.waste)
 
-        # 5. Corrige a ordem das camadas (Z-index)
-        # Retira todas as cartas da lista e volta a adicioná-las na ordem certa
+        # Normalização algorítmica da árvore visual da framework de UI para respeito da hierarquia em z.
         for card in self.cards:
             if card in self.controls:
                 self.controls.remove(card)
@@ -370,7 +359,7 @@ class Solitaire(ft.Stack):
             for card in slot.pile:
                 self.controls.append(card)
 
-        # 6. Repõe o tempo e atualiza a interface
+        # Reinicialização dos marcadores temporais.
         self._reset_score_timer()
         self.suppress_history = False
         self.update()
@@ -391,41 +380,39 @@ class Solitaire(ft.Stack):
         if self.play_btn_sound:
             self.play_btn_sound()
 
-
-        # --- NOVO: PENALIZAÇÃO POR USAR A DICA ---
-        # Adiciona 10 pontos (podes mudar para 5 ou 15, como preferires)
+        # Incorporação de agravante por consulta heurística à engine de xadrez do solver, contabilizado na métrica final.
         self.undo_penalty += 10 
         self._update_score_text()
 
         movable_piles = []
 
-        # 1. Procurar cartas no Lixo (Waste)
+        # Pesquisa linear sobre o contentor de descartes lógicos.
         if len(self.waste.pile) > 0:
             movable_piles.append([self.waste.get_top_card()])
 
-        # 2. Procurar cartas viradas para cima no Tabuleiro
+        # Indexação seletiva de sub-sequências válidas ativas na área de processamento (tableau).
         for slot in self.tableau:
             for i, card in enumerate(slot.pile):
                 if card.face_up:
                     movable_piles.append(slot.pile[i:])
 
-        # 3. Testar todas as cartas possíveis contra todas as casas possíveis
+        # Avaliação permutacional entre as cartas soltas e os targets estáticos permitidos pelos axiomas do jogo.
         for pile in movable_piles:
             base_card = pile[0]
 
-            # Tenta mover para as Fundações (só funciona se for uma carta isolada)
+            # Validação condicional para transferência a espaços de armazenamento isolados ou slots fundamentais.
             if len(pile) == 1:
                 for f_slot in self.foundations:
                     if self.check_foundations_rules(base_card, f_slot):
                         self.show_glow(base_card)
                         return
 
-            # Tenta mover para outra coluna do Tabuleiro
+            # Avaliação de matriz n x m de instâncias em estado tableau.
             for t_slot in self.tableau:
                 if base_card.slot == t_slot:
-                    continue  # Ignora a própria coluna
+                    continue 
                 
-                # Evita recomendar mover um Rei que já está numa casa vazia para outra casa vazia (loop inútil)
+                # Mitigação da redundância associada à realocação circular de peças isoladas de maior ordem hierárquica (e.g. Reis)
                 if base_card.rank.name == "King" and base_card.slot in self.tableau and len(base_card.slot.pile) == len(pile):
                     continue
 
@@ -433,38 +420,37 @@ class Solitaire(ft.Stack):
                     self.show_glow(base_card)
                     return
 
-        # 4. Se não houver jogadas no tabuleiro, sugere tirar uma carta do baralho!
+        # Resolução terminal em caso de esgotamento das possibilidades no estado de jogo corrente.
         if len(self.stock.pile) > 0:
             self.show_glow(self.stock.get_top_card())
         elif len(self.waste.pile) > 0:
-            # Se o baralho estiver vazio mas houver lixo, sugere fazer Reset
+            # Aponta ao botão de refresh mecânico caso se constate iteratividade nula por inexistência do buffer central de compra.
             self.show_glow(self.reset_btn)
 
     def show_glow(self, target):
-        """ Cria um efeito de pulsar (glow) no alvo (carta ou botão) de forma assíncrona """
+        """ Executa uma função de animação assíncrona sobre as propriedades visuais da estrutura UI selecionada, com vista a destacar um caminho de resolução válido """
         async def animate_glow():
             try:
-                # Configura a animação de transição (suave)
+                # Obtenção da referência nativa do invólucro para injeção de CSS programático temporário
                 if hasattr(target, "content"):
                     target_container = target.content
                 else:
-                    target_container = target # Caso seja um botão (reset_btn)
+                    target_container = target 
 
                 target_container.animate_shadow = ft.Animation(400, ft.AnimationCurve.EASE_IN_OUT)
                 
-                # Faz piscar 3 vezes com um azul/ciano "neon"
                 for _ in range(3):
                     target_container.shadow = ft.BoxShadow(
                         spread_radius=3, blur_radius=15, color=ft.Colors.CYAN_ACCENT_400
                     )
-                    target_container.update()  # <-- Atualiza SÓ o contentor alvo!
+                    target_container.update()
                     await asyncio.sleep(0.4)
                     
                     target_container.shadow = None
-                    target_container.update()  # <-- Atualiza SÓ o contentor alvo!
+                    target_container.update()
                     await asyncio.sleep(0.4)
             except Exception as e:
                 print(f"Erro na animação: {e}")
 
-        # Corre a animação em background sem bloquear o jogo
+        # Iniciação da thread secundária responsável pela renderização da transição no ciclo natural de vida da view model.
         self.page.run_task(animate_glow)

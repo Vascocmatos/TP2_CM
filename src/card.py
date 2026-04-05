@@ -39,17 +39,16 @@ class Card(ft.GestureDetector):
         self._play_card_sound()
         self.face_up = True
         self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
-        self.update()  # <-- Mudar de self.solitaire.update() para self.update()
+        self.update()
 
     def turn_face_down(self):
         self._play_card_sound()
         self.face_up = False
         self.content.content.src = self.solitaire.card_back
-        self.update()  # <-- Mudar de self.solitaire.update() para self.update()
+        self.update()
 
     def move_on_top(self):
-        # OTIMIZAÇÃO: Verificar se as cartas a arrastar JÁ ESTÃO no fim da lista (topo visual)
-        # Se já estiverem, saímos da função e poupamos o peso do update total!
+        # Otimização de renderização: Evita a reordenação se os elementos já se encontrarem no topo da hierarquia visual.
         if self.solitaire.controls[-len(self.draggable_pile):] == self.draggable_pile:
             return
             
@@ -115,14 +114,13 @@ class Card(ft.GestureDetector):
         if self.face_up:
             self.get_draggable_pile()
             
-            # 1. CRIAR "GHOST CARDS" NO TOPO PARA O ARRASTO
+            # Instancia representações visuais temporárias para mitigar problemas de latência visual durante o arrasto.
             self.solitaire.ghosts = []
             for c in self.draggable_pile:
-                # Esconde a imagem da carta original (mas mantém o clique ativo)
+                # Oculta o contentor original sem comprometer a interatividade do GestureDetector.
                 c.content.opacity = 0
                 c.update()
                 
-                # Cria um clone exato que vai ficar por cima de tudo visualmente
                 ghost = ft.Container(
                     width=CARD_WIDTH,
                     height=CARD_HEIGHT,
@@ -139,7 +137,7 @@ class Card(ft.GestureDetector):
     def drag(self, e: ft.DragUpdateEvent):
         if self.face_up:
             for i, c in enumerate(self.draggable_pile):
-                # 2. ATUALIZAR POSIÇÃO DA CARTA ORIGINAL (INVISÍVEL)
+                # Atualiza as coordenadas do elemento lógico no estado estrutural.
                 c.top = (
                     max(0, self.top + e.local_delta.y)
                     + i * CARD_OFFSET
@@ -147,7 +145,7 @@ class Card(ft.GestureDetector):
                 c.left = max(0, self.left + e.local_delta.x)
                 c.update()
 
-                # 3. ATUALIZAR POSIÇÃO DO CLONE VISUAL
+                # Sincroniza a posição da representação visual com as coordenadas do elemento lógico.
                 if hasattr(self.solitaire, "ghosts") and i < len(self.solitaire.ghosts):
                     ghost = self.solitaire.ghosts[i]
                     ghost.top = c.top
@@ -156,18 +154,18 @@ class Card(ft.GestureDetector):
 
     def drop(self, e: ft.DragEndEvent):
         if self.face_up:
-            # 4. LIMPAR OS CLONES QUANDO LARGAMOS AS CARTAS
+            # Remove e liberta a memória dos contentores temporários.
             if hasattr(self.solitaire, "ghosts"):
                 for ghost in self.solitaire.ghosts:
                     if ghost in self.solitaire.controls:
                         self.solitaire.controls.remove(ghost)
                 self.solitaire.ghosts.clear()
 
-            # 5. MOSTRAR AS CARTAS ORIGINAIS NOVAMENTE
+            # Restaura a visibilidade dos elementos interativos.
             for c in self.draggable_pile:
                 c.content.opacity = 1
             
-            # 6. MOVER AS ORIGINAIS PARA O TOPO (agora é seguro, o arrasto já acabou)
+            # Reordena o z-index lógico no final da interação.
             self.move_on_top()
 
             for slot in self.solitaire.tableau:
@@ -194,9 +192,8 @@ class Card(ft.GestureDetector):
         self.get_draggable_pile()
         if self.slot in self.solitaire.tableau:
             if not self.face_up and len(self.draggable_pile) == 1:
-                # virar carta manualmente (não entra no undo)
                 self.turn_face_up()
-                # ADICIONAR ESTAS DUAS LINHAS PARA O UNDO FUNCIONAR:
+                # Regista o estado de inversão da carta para efeitos de anulação da jogada.
                 if self.solitaire.history:
                     self.solitaire.history[-1]["flipped_cards"].append(self)
         elif self.slot == self.solitaire.stock:

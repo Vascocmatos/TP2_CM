@@ -30,16 +30,16 @@ def _get_storage(page):
         return ("client", page.client_storage)
     if hasattr(page, "storage") and page.storage is not None:
         return ("storage", page.storage)
-    return ("file", None)  # fallback persistente
+    return ("file", None)  
 
 
 def storage_get(page, key, default=None):
-    # 1) tenta DuckDB primeiro
+    # Consulta primária estabelecida ao motor relacional local (DuckDB).
     db_value = db_get(key)
     if db_value is not None:
         return db_value
 
-    # 2) se não tiver, tenta storage atual
+    # Método de fallback: inspeção da API de persistência da sessão em memória se houver latência/dado inexistente na base transacional.
     kind, storage = _get_storage(page)
 
     if kind in ("client", "storage"):
@@ -52,7 +52,7 @@ def storage_get(page, key, default=None):
     else:
         value = default
 
-    # 3) sincroniza para DuckDB se encontrou algo
+    # Procedimento reativo: Replica o estado volátil adquirido da memória para a persistência no storage local.
     if value is not None:
         db_set(key, value)
 
@@ -60,10 +60,10 @@ def storage_get(page, key, default=None):
 
 
 def storage_set(page, key, value):
-    # 1) grava DuckDB sempre
+    # Comutação contínua da mutação ao motor analítico.
     db_set(key, value)
 
-    # 2) grava no storage atual
+    # Injeção em cache da sessão consoante o hardware local acessível para otimizar futuros acessos.
     kind, storage = _get_storage(page)
 
     if kind in ("client", "storage"):

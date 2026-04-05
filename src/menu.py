@@ -53,7 +53,7 @@ class MenuOverlay(ft.Container):
 
         self.content = self.panel
         self.mode = "main"
-        self.game_in_progress = False  # <-- ADICIONAR ESTA LINHA
+        self.game_in_progress = False  
 
     def _play_btn_sound(self):
         if self.play_btn_sound:
@@ -116,7 +116,7 @@ class MenuOverlay(ft.Container):
         self.mode = "main"
         
         controls = []
-        # Se houver um jogo a decorrer, mostramos o botão Retomar no topo
+        # Determina a injeção do botão de retoma consoante o ciclo de vida atual do jogo.
         if getattr(self, "game_in_progress", False):
             controls.append(self._primary_btn("Retomar Jogo", lambda e: self.on_resume()))
             
@@ -144,7 +144,7 @@ class MenuOverlay(ft.Container):
             "Boa sorte!\n"
         )
         
-        # --- VOLTAR INTELIGENTE ---
+        # Algoritmo de roteamento condicional para o nó hierárquico correto baseado no estado da aplicação.
         def go_back(e):
             if getattr(self, "game_in_progress", False):
                 self._build_pause_menu()
@@ -249,7 +249,6 @@ class MenuOverlay(ft.Container):
             value=float(settings.get("sfx_volume", 0.8)), label="{value}"
         )
 
-        # --- VOLTAR INTELIGENTE ---
         def go_back(e):
             if getattr(self, "game_in_progress", False):
                 self._build_pause_menu()
@@ -308,6 +307,6 @@ class MenuOverlay(ft.Container):
         self._build_pause_menu()
 
     def hide(self):
-        self.game_in_progress = True  # <-- ADICIONAR ESTA LINHA
+        self.game_in_progress = True 
         self.visible = False
         self.update()
