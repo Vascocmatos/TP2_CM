@@ -26,32 +26,39 @@ class Card(ft.GestureDetector):
         self.content = ft.Container(
             width=CARD_WIDTH,
             height=CARD_HEIGHT,
-            border_radius=ft.border_radius.all(6),
-            content=ft.Image(src="/images/card_back.png"),
+            border_radius=ft.BorderRadius.all(6),
+            content=ft.Image(src=self.solitaire.card_back),
         )
         self.draggable_pile = [self]
 
+    def _play_card_sound(self):
+        if not self.solitaire.suppress_history and self.solitaire.play_card_sound:
+            self.solitaire.play_card_sound()
+
     def turn_face_up(self):
-        """Reveals card"""
+        self._play_card_sound()
         self.face_up = True
         self.content.content.src = f"/images/{self.rank.name}_{self.suite.name}.svg"
-        self.solitaire.update()
+        self.update()  # <-- Mudar de self.solitaire.update() para self.update()
 
     def turn_face_down(self):
-        """Hides card"""
+        self._play_card_sound()
         self.face_up = False
-        self.content.content.src = "/images/card_back.png"
-        self.solitaire.update()
+        self.content.content.src = self.solitaire.card_back
+        self.update()  # <-- Mudar de self.solitaire.update() para self.update()
 
     def move_on_top(self):
-        """Brings draggable card pile to the top of the stack"""
+        # OTIMIZAÇÃO: Verificar se as cartas a arrastar JÁ ESTÃO no fim da lista (topo visual)
+        # Se já estiverem, saímos da função e poupamos o peso do update total!
+        if self.solitaire.controls[-len(self.draggable_pile):] == self.draggable_pile:
+            return
+            
         for card in self.draggable_pile:
             self.solitaire.controls.remove(card)
             self.solitaire.controls.append(card)
         self.solitaire.update()
 
     def bounce_back(self):
-        """Returns draggable pile to its original position"""
         for card in self.draggable_pile:
             if card.slot in self.solitaire.tableau:
                 card.top = card.slot.top + card.slot.pile.index(card) * CARD_OFFSET
@@ -61,14 +68,12 @@ class Card(ft.GestureDetector):
         self.solitaire.update()
 
     def place(self, slot):
-        """Place draggable pile to the slot"""
         original_slot = self.slot
 
-        # Regista jogada apenas quando não estamos a distribuir/repor
-        if (
-            not self.solitaire.suppress_history
-            and original_slot is not None
-        ):
+        self.move_on_top()
+
+        if not self.solitaire.suppress_history and original_slot is not None:
+            self._play_card_sound()
             self.solitaire.history.append(
                 {
                     "cards": self.draggable_pile.copy(),
@@ -85,14 +90,10 @@ class Card(ft.GestureDetector):
                 card.top = slot.top
             card.left = slot.left
 
-            # remove card from it's original slot, if exists
             if card.slot is not None:
                 card.slot.pile.remove(card)
 
-            # change card's slot to a new slot
             card.slot = slot
-
-            # add card to the new slot's pile
             slot.pile.append(card)
 
         if self.solitaire.check_win():
@@ -101,33 +102,74 @@ class Card(ft.GestureDetector):
         self.solitaire.update()
 
     def get_draggable_pile(self):
-        """returns list of cards that will be dragged together, starting with the current card"""
         if (
             self.slot is not None
             and self.slot != self.solitaire.stock
             and self.slot != self.solitaire.waste
         ):
             self.draggable_pile = self.slot.pile[self.slot.pile.index(self) :]
-        else:  # slot == None when the cards are dealt and need to be place in slot for the first time
+        else: 
             self.draggable_pile = [self]
 
     def start_drag(self, e: ft.DragStartEvent):
         if self.face_up:
             self.get_draggable_pile()
-            self.move_on_top()
+            
+            # 1. CRIAR "GHOST CARDS" NO TOPO PARA O ARRASTO
+            self.solitaire.ghosts = []
+            for c in self.draggable_pile:
+                # Esconde a imagem da carta original (mas mantém o clique ativo)
+                c.content.opacity = 0
+                c.update()
+                
+                # Cria um clone exato que vai ficar por cima de tudo visualmente
+                ghost = ft.Container(
+                    width=CARD_WIDTH,
+                    height=CARD_HEIGHT,
+                    top=c.top,
+                    left=c.left,
+                    border_radius=ft.BorderRadius.all(6),
+                    content=ft.Image(src=c.content.content.src)
+                )
+                self.solitaire.ghosts.append(ghost)
+                self.solitaire.controls.append(ghost)
+                
+            self.solitaire.update()
 
     def drag(self, e: ft.DragUpdateEvent):
         if self.face_up:
-            for card in self.draggable_pile:
-                card.top = (
+            for i, c in enumerate(self.draggable_pile):
+                # 2. ATUALIZAR POSIÇÃO DA CARTA ORIGINAL (INVISÍVEL)
+                c.top = (
                     max(0, self.top + e.local_delta.y)
-                    + self.draggable_pile.index(card) * CARD_OFFSET
+                    + i * CARD_OFFSET
                 )
-                card.left = max(0, self.left + e.local_delta.x)
-            self.solitaire.update()
+                c.left = max(0, self.left + e.local_delta.x)
+                c.update()
+
+                # 3. ATUALIZAR POSIÇÃO DO CLONE VISUAL
+                if hasattr(self.solitaire, "ghosts") and i < len(self.solitaire.ghosts):
+                    ghost = self.solitaire.ghosts[i]
+                    ghost.top = c.top
+                    ghost.left = c.left
+                    ghost.update()
 
     def drop(self, e: ft.DragEndEvent):
         if self.face_up:
+            # 4. LIMPAR OS CLONES QUANDO LARGAMOS AS CARTAS
+            if hasattr(self.solitaire, "ghosts"):
+                for ghost in self.solitaire.ghosts:
+                    if ghost in self.solitaire.controls:
+                        self.solitaire.controls.remove(ghost)
+                self.solitaire.ghosts.clear()
+
+            # 5. MOSTRAR AS CARTAS ORIGINAIS NOVAMENTE
+            for c in self.draggable_pile:
+                c.content.opacity = 1
+            
+            # 6. MOVER AS ORIGINAIS PARA O TOPO (agora é seguro, o arrasto já acabou)
+            self.move_on_top()
+
             for slot in self.solitaire.tableau:
                 if (
                     abs(self.top - (slot.top + len(slot.pile) * CARD_OFFSET))
@@ -154,17 +196,19 @@ class Card(ft.GestureDetector):
             if not self.face_up and len(self.draggable_pile) == 1:
                 # virar carta manualmente (não entra no undo)
                 self.turn_face_up()
+                # ADICIONAR ESTAS DUAS LINHAS PARA O UNDO FUNCIONAR:
+                if self.solitaire.history:
+                    self.solitaire.history[-1]["flipped_cards"].append(self)
         elif self.slot == self.solitaire.stock:
-            # se o stock estiver vazio, recicla o waste
             if len(self.solitaire.stock.pile) == 0:
                 self.solitaire.restart_stock()
                 return
 
+            self._play_card_sound() 
             self.move_on_top()
             self.place(self.solitaire.waste)
             self.turn_face_up()
 
-            # marca a carta virada para possível undo
             if self.solitaire.history:
                 self.solitaire.history[-1]["flipped_cards"].append(self)
 
