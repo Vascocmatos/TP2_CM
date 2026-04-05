@@ -391,6 +391,12 @@ class Solitaire(ft.Stack):
         if self.play_btn_sound:
             self.play_btn_sound()
 
+
+        # --- NOVO: PENALIZAÇÃO POR USAR A DICA ---
+        # Adiciona 10 pontos (podes mudar para 5 ou 15, como preferires)
+        self.undo_penalty += 10 
+        self._update_score_text()
+
         movable_piles = []
 
         # 1. Procurar cartas no Lixo (Waste)
