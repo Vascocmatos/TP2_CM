@@ -230,6 +230,13 @@ class Solitaire(ft.Stack):
                 move["to"].pile.remove(card)
             card.slot = move["from"]
             move["from"].pile.append(card)
+            
+            # --- ADICIONAR ESTAS 3 LINHAS PARA CORRIGIR AS CAMADAS ---
+            # Remove a carta da lista e volta a adicioná-la no fim
+            # para garantir que fica por cima das outras visualmente
+            if card in self.controls:
+                self.controls.remove(card)
+                self.controls.append(card)
 
         for card in move["cards"]:
             if move["from"] in self.tableau:
