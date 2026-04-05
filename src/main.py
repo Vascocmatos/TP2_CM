@@ -213,6 +213,8 @@ class GameApp(ft.Stack):
         self._restore_music_volume()      # <-- Restaura após fazer o load
 
 
+
+
 def main(page: ft.Page):
     page.on_error = lambda e: print("Page error:", e.data)
     page.padding = 0  # Remover margens para usar o ecrã todo

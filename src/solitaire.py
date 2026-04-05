@@ -151,10 +151,20 @@ class Solitaire(ft.Stack):
         )
         self.controls.append(self.undo_btn)
 
+        # --- NOVO: BOTÃO DE DICA ---
+        self.hint_btn = ft.ElevatedButton(
+            "Dica",
+            icon="lightbulb_outline", # <-- Alterar apenas esta linha (usar string)
+            left=self.undo_btn.left + 80,
+            top=self.reset_btn.top,
+            on_click=self.get_hint,
+        )
+        self.controls.append(self.hint_btn)
+
         # ADICIONAR BOTÃO DE MENU PARA TELEMÓVEL
         self.pause_btn = ft.ElevatedButton(
             "Menu",
-            icon="menu",  # <--- MUDAR AQUI: Usar apenas a palavra "menu" entre aspas
+            icon="menu",
             left=10,
             top=SOLITAIRE_HEIGHT - 35,
             on_click=lambda e: self.on_pause() if self.on_pause else None,
@@ -374,3 +384,81 @@ class Solitaire(ft.Stack):
 
     def will_unmount(self):
         self._timer_task_running = False
+
+
+
+    def get_hint(self, e):
+        if self.play_btn_sound:
+            self.play_btn_sound()
+
+        movable_piles = []
+
+        # 1. Procurar cartas no Lixo (Waste)
+        if len(self.waste.pile) > 0:
+            movable_piles.append([self.waste.get_top_card()])
+
+        # 2. Procurar cartas viradas para cima no Tabuleiro
+        for slot in self.tableau:
+            for i, card in enumerate(slot.pile):
+                if card.face_up:
+                    movable_piles.append(slot.pile[i:])
+
+        # 3. Testar todas as cartas possíveis contra todas as casas possíveis
+        for pile in movable_piles:
+            base_card = pile[0]
+
+            # Tenta mover para as Fundações (só funciona se for uma carta isolada)
+            if len(pile) == 1:
+                for f_slot in self.foundations:
+                    if self.check_foundations_rules(base_card, f_slot):
+                        self.show_glow(base_card)
+                        return
+
+            # Tenta mover para outra coluna do Tabuleiro
+            for t_slot in self.tableau:
+                if base_card.slot == t_slot:
+                    continue  # Ignora a própria coluna
+                
+                # Evita recomendar mover um Rei que já está numa casa vazia para outra casa vazia (loop inútil)
+                if base_card.rank.name == "King" and base_card.slot in self.tableau and len(base_card.slot.pile) == len(pile):
+                    continue
+
+                if self.check_tableau_rules(base_card, t_slot):
+                    self.show_glow(base_card)
+                    return
+
+        # 4. Se não houver jogadas no tabuleiro, sugere tirar uma carta do baralho!
+        if len(self.stock.pile) > 0:
+            self.show_glow(self.stock.get_top_card())
+        elif len(self.waste.pile) > 0:
+            # Se o baralho estiver vazio mas houver lixo, sugere fazer Reset
+            self.show_glow(self.reset_btn)
+
+    def show_glow(self, target):
+        """ Cria um efeito de pulsar (glow) no alvo (carta ou botão) de forma assíncrona """
+        async def animate_glow():
+            try:
+                # Configura a animação de transição (suave)
+                if hasattr(target, "content"):
+                    target_container = target.content
+                else:
+                    target_container = target # Caso seja um botão (reset_btn)
+
+                target_container.animate_shadow = ft.Animation(400, ft.AnimationCurve.EASE_IN_OUT)
+                
+                # Faz piscar 3 vezes com um azul/ciano "neon"
+                for _ in range(3):
+                    target_container.shadow = ft.BoxShadow(
+                        spread_radius=3, blur_radius=15, color=ft.Colors.CYAN_ACCENT_400
+                    )
+                    target_container.update()  # <-- Atualiza SÓ o contentor alvo!
+                    await asyncio.sleep(0.4)
+                    
+                    target_container.shadow = None
+                    target_container.update()  # <-- Atualiza SÓ o contentor alvo!
+                    await asyncio.sleep(0.4)
+            except Exception as e:
+                print(f"Erro na animação: {e}")
+
+        # Corre a animação em background sem bloquear o jogo
+        self.page.run_task(animate_glow)
