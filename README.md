@@ -1,57 +1,56 @@
 # Solitário - TP2_85234
 
-Este projeto é uma implementação do clássico jogo Solitário desenvolvida em Python com a framework Flet. Além das mecânicas base do jogo, foram incluídas diversas funcionalidades extra que elevam a qualidade da aplicação, tornando-a mais interativa, personalizável e robusta.
-
-Abaixo encontram-se descritas as funcionalidades extra implementadas, os respetivos motivos de inclusão e as instruções de utilização.
+Este projeto é uma implementação do jogo Solitário desenvolvida em Python utilizando a framework Flet. O projeto cumpre todos os requisitos obrigatórios e inclui diversas funcionalidades extra que se basearam na melhoria visual do jogo, incluindo visibilidade e performan-se, adicionado mecânicas e particularidades de jogabilidade e Quality of life incluindo sistema de audio.
 
 ---
 
-## Funcionalidade Extra 1: Sistema de Guardar e Carregar Jogo (Múltiplos Slots)
+## Funcionalidades Base
 
-**Motivos de Inclusão:**
-Um jogo de solitário pode prolongar-se por vários minutos e exigir foco. A capacidade de pausar, fechar a aplicação e retomar a sessão mais tarde é uma funcionalidade crucial para a experiência do utilizador, especialmente em cenários móveis ou de sessões curtas. Sem um sistema de gravação, qualquer interrupção resultaria na perda total do progresso, o que gera frustração.
+Antes de detalhar os extras, eis um breve resumo de como os requisitos base foram implementados:
+**Base**
+A base do jogo e funcionalidades é alterada e implementada a travez de um menu de jogo e menu inicial. Varias das funcionalidades pedidas no guião estão ligadas atravez do menu.
 
-**Descrição Detalhada:**
-Foi implementado um sistema de persistência de estado (*state persistence*) robusto e à prova de falhas, que utiliza uma abordagem de armazenamento dupla: suporta-se numa base de dados DuckDB (`duckdb_store.py`) aliada a um ficheiro local em formato JSON (`local_storage.json`). Este sistema arquitetural foi desenhado para suportar até três "slots" de gravação distintos. Isto permite que múltiplos utilizadores partilhem o mesmo dispositivo, ou que um único utilizador mantenha várias experiências de jogo a decorrer em simultâneo. 
-
-Quando o jogador decide guardar o seu progresso através do menu de pausa, o sistema não guarda apenas a pontuação e o tempo; ele serializa o estado exato de todo o tabuleiro. Isto inclui a disposição e ordem rigorosa das cartas nas sete colunas do *tableau*, o estado das *foundations*, e as cartas exatas contidas no *stock* (baralho) e *waste* (lixo), bem como a propriedade de cada carta estar virada para cima ou para baixo. Ao carregar um jogo, a aplicação reconstrói o tabuleiro passo-a-passo, garantindo que o posicionamento visual e as camadas (o *Z-index* no Flet) são repostas na perfeição, sem sobreposições gráficas anormais. O sistema trata também da salvaguarda das opções globais da aplicação de forma transparente.
-
-**Instruções de Utilização:**
-1. Durante o jogo, clique no botão "Menu" no canto inferior esquerdo (ou prima a tecla `Escape` no teclado).
-2. Para guardar: Selecione "Salvar Jogo" e clique num dos três *slots* disponíveis.
-3. Para carregar: No menu principal ou no ecrã de pausa, selecione "Carregar Jogo" e clique num *slot* que contenha uma gravação válida. Pode também apagar gravações através do botão correspondente a cada *slot*.
+*   **Reiniciar o Jogo:** O botão no menu novo jogo permite iniciar um jogo do 0 sem ter de sair da app.
+*   **Desfazer Jogadas (Undo):** O sistema guarda cada movimento (origem, destino, cartas envolvidas e cartas viradas) num histórico (`self.history`). Ao fazer *undo*, as cartas regressam à origem e as cartas reveladas voltam a ser viradas para baixo.
+*   **Salvar e Carregar:** Utiliza um sistema híbrido robusto (`duckdb_store.py` e ficheiro `local_storage.json`) que serializa o estado exato das pilhas, a posição das cartas e o tempo decorrido, repondo visualmente as camadas do Flet no carregamento.
+*   **Traseira das Cartas:** Disponível no menu de Opções (Dropdown com 4 escolhas: Clássico, Blasphemous, Bach, Amarelo). A alteração é refletida em tempo real nas cartas voltadas para baixo.
+*   **Pontuação e Cronómetro:** Baseado na fórmula `Pontuação = Tempo + Penalizações`. O relógio é atualizado assincronamente a cada segundo e as ações de *undo* adicionam 5 pontos de penalização (onde menos pontos significa um melhor desempenho).
 
 ---
 
-## Funcionalidade Extra 2: Sistema de Dicas Inteligente com Animação e Penalizações
+## Funcionalidades Extra
+
+### 1. Sistema de Dicas Inteligente com Animação Visual e Penalização
 
 **Motivos de Inclusão:**
-O solitário é um jogo de paciência que pode levar a momentos de bloqueio, especialmente para jogadores menos experientes. A inclusão de um sistema de dicas (Hints) torna o jogo mais acessível e educativo. Contudo, para manter a componente de desafio e o aspeto competitivo, foi necessário balancear a ajuda com uma mecânica de risco-recompensa através de penalizações.
+Muitas vezes, durante um jogo, pode haver bloqueios e nao ser claro que opções estão possiveis. Neste caso o botão dica apresenta que possibilidades de jogadas existem.
 
-**Descrição Detalhada:**
-O botão de "Dica" não se limita a ser um mero indicador de sorte; ele é suportado por um algoritmo que varre o estado atual do jogo para calcular a melhor jogada possível. O algoritmo analisa iterativamente as cartas disponíveis no *waste* e todas as cartas visíveis no *tableau*. Em seguida, cruza estas cartas com as regras estritas de colocação, testando primeiro movimentações seguras para as *foundations* e, de seguida, movimentações táticas entre colunas do *tableau*. 
+**Descrição:**
+Quando o botão "Dica" (`get_hint`) é precionado. o codigo verifica o estado atual do tabuleiro em procura a melhor jogada legal. O processo obedece a uma hierarquia de prioridades: primeiro, analisa a viabilidade de mover a carta de topo do *waste* ou do *tableau* para as *foundations*; de seguida, testa movimentos legais entre as várias colunas do *tableau* (evitando *loops* infinitos de reis a moverem-se entre colunas vazias). 
 
-Quando o algoritmo identifica uma jogada legal, ele não a executa automaticamente, pois isso retiraria o controlo ao jogador. Em vez disso, o sistema aciona uma animação visual assíncrona — um efeito *glow* néon azul/ciano que faz a carta sugerida pulsar suavemente durante alguns segundos. Caso não existam movimentos possíveis no tabuleiro, o sistema é inteligente o suficiente para destacar o baralho principal ou o botão de reiniciar o baralho. Para desencorajar o abuso constante do botão de dica (o que tornaria o jogo trivial), introduziu-se um sistema de penalização: cada clique no botão "Dica" adiciona automaticamente 10 pontos à pontuação de penalização do jogador (onde uma pontuação final mais baixa reflete um melhor desempenho, combinada com o tempo de jogo).
+Quando o algoritmo encontra uma jogada válida, aciona um método de animação assíncrono (`show_glow`). Esta função manipula a propriedade `shadow` do Flet, criando um efeito néon azul/ciano que faz a carta sugerida piscar de forma suave (*ease-in-out*) três vezes, sem bloquear a *thread* principal do jogo. Se não houver jogadas no tabuleiro, o sistema destaca o baralho ou o botão de reiniciar o baralho, orientando o jogador. A cada vez que o botão é precionado é aplicado uma penalização de 10 pontos ao *score* do jogador.
+---
 
-**Instruções de Utilização:**
-1. Durante a partida, localize o botão "Dica" (representado por um ícone de lâmpada) abaixo do tabuleiro.
-2. Ao clicar, repare que o ecrã fará piscar a carta que deve ser movida, ou o local onde deve clicar.
-3. Tenha em atenção que o seu contador de "Pontos" sofrerá um incremento de 10 unidades por cada vez que recorrer a esta ajuda.
+### 2. Sistema de Áudio Dinâmico (BGM, SFX e Audio Muffling)
+
+**Motivos de Inclusão:**
+Audio em jogos é sempre mais dinamico. Para isso foi adicionado som ao clicar em botões, ao interagir com cartas e uma musica de fundo adequada.
+
+**Descrição:**
+O código utiliza o módulo `flet_audio` (`fta.Audio`), dividindo os sons em três canais independentes: Música de Fundo (BGM), Efeitos das Cartas (SFX_Card) e Efeitos de Interface (SFX_Btn). Numa tentativa de contornar bloqueios dos browsers e dispositivos audio, foi implementado um delay e espera para que o audio so fosse tocado apos a interação do jogador. Infelistmente apenas funciona quando é corrido localmente no PC.
+
+O auido tem como caractristica o efeito de abafamento de áudio. Quando o jogador prime o botão de menu (ou a tecla `Escape`) durante uma partida, o jogo entra em pausa e o código chama `_muffle_music_volume()`. Esta função interceta o volume global definido pelo utilizador e reduz a música dinamicamente para 30% da sua capacidade dando a ilusão de abafo.
+
+É possivel alterar o volume de audio atravez das opões nos menus.
 
 ---
 
-## Funcionalidade Extra 3: Sistema de Áudio Dinâmico e Personalização Visual Temática
+### 3. Menu
 
 **Motivos de Inclusão:**
-A estética e a ambiência sonora são essenciais para modernizar um jogo clássico. Dar ao jogador a capacidade de personalizar os elementos visuais cria um sentimento de apropriação do jogo. Ao mesmo tempo, o áudio bem desenhado melhora o *feedback* tátil, tornando o simples ato de virar uma carta numa experiência mais gratificante.
+Para facilitar a manipulação de opções e para facilitar a interação com as varias funcionalidades implementadas foi adicionado um menu. Este que contem todas as funcionalidades nao relacionadas com o jogo em si.
 
 **Descrição Detalhada:**
-O jogo foi dotado de um menu de "Opções" abrangente que altera o comportamento global da aplicação em tempo real. A nível visual, implementou-se um sistema de *skins* dinâmicas que permite ao jogador escolher entre múltiplos versos de cartas (por exemplo: "Clássico", "Blasphemous", "Bach" ou "Amarelo"). Assim que a opção é aplicada, o código itera sobre todas as cartas não reveladas no ecrã e altera a sua propriedade `src` para o novo *asset*, sem necessitar de reiniciar a aplicação ou corromper a sessão de jogo ativa.
+Foi criada a classe `MenuOverlay` no ficheiro `menu.py`. Esta interface flutua sobre a classe principal do jogo através do uso de `ft.Stack`. Possui um fundo escuro, contendo um painel central. O menu gere o seu próprio estado (`mode`), permitindo alternar de forma fluida entre Ecrã Inicial, Pausa, Carregar/Gravar Jogo, Opções e Tutorial, reciclando a mesma estrutura visual. O módulo de Tutorial, em específico, explica as regras de pontuação do jogo.
 
-A nível sonoro, o projeto tira partido do `flet_audio` com uma implementação avançada de canais. Existem efeitos sonoros independentes para o clique em botões de interface e para a movimentação/virar das cartas. O destaque vai para o sistema inteligente da música de fundo (que entra em *loop* dinâmico). De modo a respeitar as restrições dos *browsers* modernos de auto-play, a música só arranca de forma assíncrona na primeira interação real do jogador. Adicionalmente, foi programada uma funcionalidade de *audio muffling* (abafamento sonoro): sempre que o jogador invoca o menu de pausa interativo, o volume da música de fundo é reduzido dinamicamente para 30% da configuração definida, criando uma separação clara entre "estado de jogo" e "estado de menu", sendo restaurado imediatamente ao retomar a partida.
-
-**Instruções de Utilização:**
-1. Aceda ao "Menu" e selecione "Opções".
-2. Utilize o menu suspenso (Dropdown) "Traseira das cartas" para escolher a temática desejada.
-3. Ajuste os controlos deslizantes (*sliders*) independentes para afinar o volume da "Música de Fundo" e dos "Efeitos Sonoros".
-4. Clique em "Aplicar" para ver as cartas no tabuleiro atualizarem-se instantaneamente com o novo tema. Repare também na diminuição suave do volume enquanto se encontra neste menu.
+Adicionalmente, foi colocado uma funcionalidade de `on_resize` da janela (`main.py`). Esta parte calcula fatores de escala virtuais baseados no rácio de resolução interna (720x600). Ao detetar uma alteração no tamanho da janela , o código aplica um `ft.Scale` exato e calcula as sobras de ecrã horizontais para centrar a `Stack` do jogo ao meio do monitor. Isto garante que o jogo nunca sofre recortes indesejados e que a *hitbox* das cartas permanece fidedigna.

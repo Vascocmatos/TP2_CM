@@ -138,8 +138,10 @@ class MenuOverlay(ft.Container):
             "• Objetivo: completar as fundações por naipe do Ás ao Rei.\n\n"
             "Particularidades desta app:\n"
             "• O tempo e a pontuação reiniciam quando carregas um save.\n"
+            "• Cada dica adiciona +10 pontos.\n"
             "• Cada Undo adiciona +5 pontos (pior pontuação).\n"
-            "• Pontuação = tempo total + penalizações.\n"
+            "• Pontuação = tempo total + penalizações.\n\n"
+            "Boa sorte!\n"
         )
         
         # --- VOLTAR INTELIGENTE ---
